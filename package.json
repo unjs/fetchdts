@@ -1,0 +1,58 @@
+{
+  "name": "fetchdts",
+  "type": "module",
+  "version": "0.0.0",
+  "packageManager": "pnpm@9.15.4",
+  "description": "",
+  "license": "MIT",
+  "repository": "danielroe/fetchdts",
+  "sideEffects": false,
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "unbuild",
+    "dev": "vitest dev",
+    "lint": "eslint . --fix",
+    "prepare": "simple-git-hooks",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm lint && pnpm test",
+    "release": "bumpp && pnpm publish",
+    "test": "pnpm test:unit && pnpm test:types",
+    "test:unit": "vitest",
+    "test:knip": "knip",
+    "test:versions": "installed-check -d --no-workspaces",
+    "test:types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "latest",
+    "@vitest/coverage-v8": "latest",
+    "bumpp": "latest",
+    "changelogithub": "latest",
+    "eslint": "latest",
+    "installed-check": "latest",
+    "knip": "latest",
+    "lint-staged": "latest",
+    "simple-git-hooks": "latest",
+    "typescript": "latest",
+    "unbuild": "latest",
+    "vitest": "latest"
+  },
+  "resolutions": {
+    "fetchdts": "link:."
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.{js,ts,mjs,cjs,json,.*rc}": [
+      "npx eslint --fix"
+    ]
+  }
+}
