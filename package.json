@@ -25,7 +25,7 @@
     "prepublishOnly": "pnpm lint && pnpm test",
     "release": "bumpp && pnpm publish",
     "test": "pnpm test:unit && pnpm test:types",
-    "test:unit": "vitest",
+    "test:unit": "vitest --typecheck",
     "test:knip": "knip",
     "test:versions": "installed-check -d --no-workspaces",
     "test:types": "tsc --noEmit"
