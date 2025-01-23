@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.0",
   "packageManager": "pnpm@9.15.4",
-  "description": "",
+  "description": "A suite of type utilities for building strongly-typed APIs",
   "license": "MIT",
   "repository": "danielroe/fetchdts",
   "sideEffects": false,
