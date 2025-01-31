@@ -9,7 +9,7 @@
 
 🚧 Under active development
 
-- [▶️ &nbsp;Online playground](https://stackblitz.com/github/danielroe/fetchdts/tree/main/playground)
+- [▶️ &nbsp;Online playground](https://stackblitz.com/github/unjs/fetchdts/tree/main/playground)
 
 ## Features
 
@@ -80,7 +80,7 @@ Published under [MIT License](./LICENCE).
 [npm-version-href]: https://npmjs.com/package/fetchdts
 [npm-downloads-src]: https://img.shields.io/npm/dm/fetchdtsstyle=flat-square
 [npm-downloads-href]: https://npm.chart.dev/fetchdts
-[github-actions-src]: https://img.shields.io/github/actions/workflow/status/danielroe/fetchdts/ci.yml?branch=main&style=flat-square
-[github-actions-href]: https://github.com/danielroe/fetchdts/actions?query=workflow%3Aci
-[codecov-src]: https://img.shields.io/codecov/c/gh/danielroe/fetchdts/main?style=flat-square
-[codecov-href]: https://codecov.io/gh/danielroe/fetchdts
+[github-actions-src]: https://img.shields.io/github/actions/workflow/status/unjs/fetchdts/ci.yml?branch=main&style=flat-square
+[github-actions-href]: https://github.com/unjs/fetchdts/actions?query=workflow%3Aci
+[codecov-src]: https://img.shields.io/codecov/c/gh/unjs/fetchdts/main?style=flat-square
+[codecov-href]: https://codecov.io/gh/unjs/fetchdts

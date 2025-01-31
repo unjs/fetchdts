@@ -4,8 +4,13 @@
   "version": "0.0.1",
   "packageManager": "pnpm@9.15.4",
   "description": "A suite of type utilities for building strongly-typed APIs",
+  "author": {
+    "name": "Daniel Roe",
+    "email": "daniel@roe.dev",
+    "url": "https://roe.dev"
+  },
   "license": "MIT",
-  "repository": "danielroe/fetchdts",
+  "repository": "unjs/fetchdts",
   "sideEffects": false,
   "exports": {
     ".": "./dist/index.js"
