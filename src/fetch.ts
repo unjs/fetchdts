@@ -25,20 +25,6 @@ export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS'
 
 // type TypedHeadersClass<TypedHeaderValues extends Record<string, string>> = new (init?: TypedHeadersInit<TypedHeaderValues>) => TypedHeaders<TypedHeaderValues>
 
-export interface TypedResponse<Body = unknown> {
-  readonly body: ReadableStream<Uint8Array> | null
-  readonly bodyUsed: boolean
-  arrayBuffer: () => Promise<ArrayBuffer>
-  blob: () => Promise<Blob>
-  formData: () => Promise<FormData>
+export interface TypedResponse<Body = unknown> extends Omit<Response, 'json'> {
   json: () => Promise<Body>
-  text: () => Promise<string>
-  readonly headers: Headers
-  readonly ok: boolean
-  readonly redirected: boolean
-  readonly status: number
-  readonly statusText: string
-  readonly type: ResponseType
-  readonly url: string
-  clone: () => Response
 }
