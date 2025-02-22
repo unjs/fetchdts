@@ -2,7 +2,7 @@
   "name": "fetchdts",
   "type": "module",
   "version": "0.0.1",
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@9.15.5",
   "description": "A suite of type utilities for building strongly-typed APIs",
   "author": {
     "name": "Daniel Roe",
@@ -43,7 +43,7 @@
     "changelogithub": "^13.12.1",
     "eslint": "9.19.0",
     "installed-check": "^9.3.0",
-    "knip": "^5.43.6",
+    "knip": "^5.44.4",
     "lint-staged": "^15.4.3",
     "simple-git-hooks": "^2.11.1",
     "typescript": "^5.7.3",
