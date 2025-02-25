@@ -18,7 +18,7 @@ importers:
         specifier: latest
         version: 22.13.5
       '@vitest/coverage-v8':
-        specifier: ^3.0.4
+        specifier: 3.0.4
         version: 3.0.4(vitest@3.0.4(@types/debug@4.1.12)(@types/node@22.13.5))
       bumpp:
         specifier: ^10.0.1
@@ -48,7 +48,7 @@ importers:
         specifier: ^3.3.1
         version: 3.3.1(typescript@5.7.3)
       vitest:
-        specifier: ^3.0.4
+        specifier: 3.0.4
         version: 3.0.4(@types/debug@4.1.12)(@types/node@22.13.5)
 
   playground:
