@@ -38,7 +38,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "4.4.0",
     "@types/node": "latest",
-    "@vitest/coverage-v8": "3.0.4",
+    "@vitest/coverage-v8": "3.0.7",
     "bumpp": "10.0.3",
     "changelogithub": "13.13.0",
     "eslint": "9.21.0",
@@ -48,7 +48,7 @@
     "simple-git-hooks": "2.11.1",
     "typescript": "5.8.2",
     "unbuild": "3.5.0",
-    "vitest": "3.0.4"
+    "vitest": "3.0.7"
   },
   "resolutions": {
     "fetchdts": "link:."
