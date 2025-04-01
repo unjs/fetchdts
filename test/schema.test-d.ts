@@ -1,5 +1,5 @@
-import type { HTTPMethod } from '../src/fetch'
-import type { TypedFetchInput, TypedFetchMeta, TypedFetchRequestInit, TypedFetchResponse } from '../src/inference'
+import type { HTTPMethod, TypedResponse } from '../src/fetch'
+import type { TypedFetchInput, TypedFetchMeta, TypedFetchRequestInit, TypedFetchResponse, TypedFetchResponseHeaders } from '../src/inference'
 import type { RespectOptionality, Trimmed } from '../src/utils'
 
 import type { ExampleSchema } from './fixture/schema'
@@ -60,21 +60,28 @@ describe('fetchdts', () => {
     expectTypeOf(infer('https://jsonplaceholder.typicode.com/posts?test')).toEqualTypeOf<{ id: number }>()
   })
 
-  it('can enforce typed headers', () => {
+  it('can enforce typed headers', async () => {
     // @ts-expect-error missing authorization header
-    infer('/headers', { method: 'POST', headers: {} })
+    infer('/headers/request', { method: 'POST', headers: {} })
 
     // @ts-expect-error authorization header should be a string
-    infer('/headers', { method: 'POST', headers: { authorization: 12 } })
+    infer('/headers/request', { method: 'POST', headers: { authorization: 12 } })
 
     // requires authorization and also accepts additional headers
-    infer('/headers', {
+    infer('/headers/request', {
       method: 'POST',
       headers: {
         authorization: 'my-key',
         other: 'foo',
       },
     })
+
+    // types response headers as well
+    const res = inferResponse('/headers/response')
+    const header = res.headers.get('content-type')
+    const data = await res.json()
+    expectTypeOf(header).toEqualTypeOf<'application/json' | null>()
+    expectTypeOf(data).toEqualTypeOf<{ type: 'headers', method: 'POST' }>()
   })
 
   it('can enforce typed body', () => {
@@ -139,5 +146,13 @@ function infer<T extends TypedFetchInput<ExampleSchema>, Init extends CustomType
 function infer<T extends TypedFetchInput<ExampleSchema, 'GET'>, Init extends CustomTypedFetchRequestInit<ExampleSchema, T>>(_input: T, _init?: Init): TypedFetchResponse<ExampleSchema, Trimmed<T>, 'GET'>
 
 function infer(_input: any, _init?: any) {
+  return {} as any
+}
+
+function inferResponse<T extends TypedFetchInput<ExampleSchema>, Init extends CustomTypedFetchRequestInit<ExampleSchema, T>>(_input: T, _init: Init): TypedResponse<TypedFetchResponse<ExampleSchema, Trimmed<T>, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>, TypedFetchResponseHeaders<ExampleSchema, Trimmed<T>, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>>
+
+function inferResponse<T extends TypedFetchInput<ExampleSchema, 'GET'>, Init extends CustomTypedFetchRequestInit<ExampleSchema, T>>(_input: T, _init?: Init): TypedResponse<TypedFetchResponse<ExampleSchema, Trimmed<T>, 'GET'>, TypedFetchResponseHeaders<ExampleSchema, Trimmed<T>, 'GET'>>
+
+function inferResponse(_input: any, _init?: any) {
   return {} as any
 }

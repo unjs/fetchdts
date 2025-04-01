@@ -46,10 +46,20 @@ export interface ExampleSchema {
     }
   }
   '/headers': {
-    [Endpoint]: {
-      POST: {
-        response: { type: 'headers', method: 'POST' }
-        headers: { authorization: string }
+    '/request': {
+      [Endpoint]: {
+        POST: {
+          response: { type: 'headers', method: 'POST' }
+          headers: { authorization: string }
+        }
+      }
+    }
+    '/response': {
+      [Endpoint]: {
+        GET: {
+          response: { type: 'headers', method: 'POST' }
+          responseHeaders: { 'content-type': 'application/json' }
+        }
       }
     }
   }
