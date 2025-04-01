@@ -9,9 +9,11 @@ export interface RouteTree {
   [key: string | symbol]: Partial<Endpoints> | RouteTree
 }
 
-export type Endpoints = Record<HTTPMethod, {
+export interface EndpointMetadata {
   query: never | Record<string, unknown>
   headers: Record<string, unknown>
   body: never | Record<string, unknown>
   response: unknown
-}>
+}
+
+export type Endpoints = Record<HTTPMethod, EndpointMetadata>
