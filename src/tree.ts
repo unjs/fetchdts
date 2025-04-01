@@ -14,6 +14,7 @@ export interface EndpointMetadata {
   headers: Record<string, unknown>
   body: never | Record<string, unknown>
   response: unknown
+  responseHeaders: Record<string, unknown>
 }
 
 export type Endpoints = Record<HTTPMethod, EndpointMetadata>

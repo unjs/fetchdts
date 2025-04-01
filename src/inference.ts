@@ -81,3 +81,12 @@ export type TypedFetchResponse<Schema, Endpoint, Method extends HTTPMethod = 'GE
     : 'response' extends keyof TypedFetchMeta<Schema, Endpoint, Method>
       ? TypedFetchMeta<Schema, Endpoint, Method>['response']
       : never
+
+export type TypedFetchResponseHeaders<Schema, Endpoint, Method extends HTTPMethod = 'GET'> =
+  TypedFetchMeta<Schema, Endpoint, Method> extends never
+    ? 'responseHeaders' extends keyof TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>
+      ? TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>['responseHeaders']
+      : never
+    : 'responseHeaders' extends keyof TypedFetchMeta<Schema, Endpoint, Method>
+      ? TypedFetchMeta<Schema, Endpoint, Method>['responseHeaders']
+      : never
