@@ -1,4 +1,4 @@
-export type { TypedResponse } from './fetch'
+export type { TypedHeaders, TypedResponse } from './fetch'
 
 export type { TypedFetchInput, TypedFetchPath, TypedFetchRequestInit, TypedFetchResponse } from './inference'
 
