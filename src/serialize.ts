@@ -7,7 +7,7 @@ interface OutputOptions {
   export?: boolean
 }
 
-interface Route {
+export interface Route {
   type?: 'static' | 'dynamic' | 'wildcard'
   path: string
   metadata?: {
