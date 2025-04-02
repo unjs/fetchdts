@@ -72,7 +72,7 @@ function stringifyRouteTree(tree: RouteTree, indent = 2): string {
     if (!value) {
       continue
     }
-    const key = keys[_key] || JSON.stringify(_key)
+    const key = keys[_key] || JSON.stringify((_key as string).replace(/Type$/, ''))
     if (typeof value === 'string') {
       properties += `${' '.repeat(indent)}${key}: ${value}\n`
     }

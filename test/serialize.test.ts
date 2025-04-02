@@ -31,15 +31,15 @@ describe('serialize', () => {
       interface InternalRoutes {
         "/": {
           "GET": {
-            "responseType": { type: 'headers', method: 'POST' }
-            "headersType": { authorization: 'string' }
+            "response": { type: 'headers', method: 'POST' }
+            "headers": { authorization: 'string' }
           }
         }
         "/bob": {
           [DynamicParam]: {
             "POST": {
-              "responseType": { type: 'headers', method: 'POST' }
-              "headersType": { authorization: 'string' }
+              "response": { type: 'headers', method: 'POST' }
+              "headers": { authorization: 'string' }
             }
           }
         }
