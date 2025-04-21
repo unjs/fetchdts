@@ -43,7 +43,7 @@
     "changelogithub": "13.13.0",
     "eslint": "9.24.0",
     "installed-check": "9.3.0",
-    "knip": "5.50.3",
+    "knip": "5.50.5",
     "lint-staged": "15.5.1",
     "simple-git-hooks": "2.12.1",
     "typescript": "5.8.3",
