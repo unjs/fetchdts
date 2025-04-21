@@ -48,7 +48,7 @@
     "simple-git-hooks": "2.12.1",
     "typescript": "5.8.3",
     "unbuild": "3.5.0",
-    "vitest": "3.1.1"
+    "vitest": "3.1.2"
   },
   "resolutions": {
     "fetchdts": "link:."
