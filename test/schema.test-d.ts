@@ -1,4 +1,5 @@
-import type { HTTPMethod, TypedResponse } from '../src/fetch'
+import type { TypedResponse } from '../src/fetch'
+import type { HTTPMethod } from '../src/http'
 import type { TypedFetchInput, TypedFetchMeta, TypedFetchRequestInit, TypedFetchResponse, TypedFetchResponseHeaders } from '../src/inference'
 import type { RespectOptionality, Trimmed } from '../src/utils'
 

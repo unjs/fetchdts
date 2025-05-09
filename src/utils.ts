@@ -1,6 +1,6 @@
 // this is an example native fetch client with full typings
 
-// import type { HTTPMethod, TypedResponse } from './fetch'
+// import type { HTTPMethod, TypedResponse } from './http'
 // import type { RouteTree, TypedFetchInput, TypedFetchRequestInit, TypedFetchResponse } from './inference'
 
 // export interface TypedFetch<Schema extends RouteTree> {

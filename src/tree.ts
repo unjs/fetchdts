@@ -1,4 +1,4 @@
-import type { HTTPMethod } from './fetch'
+import type { HTTPMethod } from './http'
 
 export type StaticParam = string // for readability only
 export const DynamicParam = Symbol.for('dynamic parameter')

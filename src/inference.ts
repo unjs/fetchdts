@@ -1,4 +1,4 @@
-import type { HTTPMethod } from './fetch'
+import type { HTTPMethod } from './http'
 import type { DynamicParam, Endpoint, StaticParam, WildcardParam } from './tree'
 import type { RespectOptionality } from './utils'
 

@@ -1,5 +1,3 @@
-export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS' | 'HEAD' | 'CONNECT' | 'TRACE'
-
 // TODO: 'typed' variants of headers
 export interface TypedHeaders<TypedHeaderValues extends Record<string, string> | unknown> {
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/append) */
