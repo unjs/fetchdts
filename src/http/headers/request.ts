@@ -218,5 +218,3 @@ export interface RequestHeaderMap {
   'X-Requested-With': AnyString
   'X-XSS-Protection': '0' | '1' | '1; mode=block' | AnyString
 }
-
-export interface ResponseHeaderMap {}
