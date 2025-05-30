@@ -1,4 +1,5 @@
-// TODO: 'typed' variants of headers
+import type { ResponseHeaderMap } from './http'
+
 export interface TypedHeaders<TypedHeaderValues extends Record<string, string> | unknown> {
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/append) */
   append: <Name extends string = keyof TypedHeaderValues & string> (name: Name, value: Name extends string ? Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string : string) => void
@@ -23,7 +24,14 @@ export interface TypedHeaders<TypedHeaderValues extends Record<string, string> |
 
 // type TypedHeadersClass<TypedHeaderValues extends Record<string, string>> = new (init?: TypedHeadersInit<TypedHeaderValues>) => TypedHeaders<TypedHeaderValues>
 
-export interface TypedResponse<Body = unknown, Headers extends Record<string, string> | unknown = Record<string, string>> extends Omit<Response, 'json' | 'headers'> {
+export interface TypedResponse<Body = unknown, Headers extends Record<string, string> | unknown = ResponseHeaderMap> extends Omit<Response, 'clone' | 'headers' | 'json'> {
+  clone: () => TypedResponse<Body, Headers>
+  json: () => Promise<Body>
+  headers: TypedHeaders<Headers>
+}
+
+export interface TypedRequest<Body = unknown, Headers extends Record<string, string> | unknown = ResponseHeaderMap> extends Omit<Request, 'clone' | 'headers' | 'json'> {
+  clone: () => TypedRequest<Headers>
   json: () => Promise<Body>
   headers: TypedHeaders<Headers>
 }

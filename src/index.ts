@@ -1,6 +1,6 @@
-export type { TypedHeaders, TypedResponse } from './fetch'
+export type { TypedHeaders, TypedRequest, TypedResponse } from './fetch'
 
-export type { HTTPMethod, MimeType, RequestHeaderMap, RequestHeaderName, ResponseHeaderMap, ResponseHeaderName } from './http'
+export type { HTTPMethod, MimeType, RequestHeaderMap, RequestHeaderName, RequestHeaders, ResponseHeaderMap, ResponseHeaderName, ResponseHeaders } from './http'
 
 export type { TypedFetchInput, TypedFetchPath, TypedFetchRequestInit, TypedFetchResponse } from './inference'
 
