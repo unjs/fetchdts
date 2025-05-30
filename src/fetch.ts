@@ -1,6 +1,6 @@
 import type { ResponseHeaderMap } from './http'
 
-export interface TypedHeaders<TypedHeaderValues extends Record<string, string> | unknown> {
+export interface TypedHeaders<TypedHeaderValues extends Record<string, string> | unknown> extends Omit<Headers, 'append' | 'delete' | 'get' | 'getSetCookie' | 'has' | 'set' | 'forEach'> {
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/append) */
   append: <Name extends string = keyof TypedHeaderValues & string> (name: Name, value: Name extends string ? Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string : string) => void
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/delete) */
