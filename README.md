@@ -142,23 +142,25 @@ fetchdts uses special symbols to define different types of route matching:
 ```ts
 import { DynamicParam, Endpoint, WildcardParam } from 'fetchdts'
 
-// Endpoint: Marks where HTTP methods are defined
-[Endpoint]: {
-  GET: { response: Data }
-  POST: { body: Input; response: Data }
-}
-
-// DynamicParam: Matches single path segments (e.g., /users/:id)
-[DynamicParam]: {
+interface Schema {
+  // Endpoint: Marks where HTTP methods are defined
   [Endpoint]: {
-    GET: { response: User }
+    GET: { response: Data }
+    POST: { body: Input, response: Data }
   }
-}
 
-// WildcardParam: Matches multiple path segments (e.g., /files/*)
-[WildcardParam]: {
-  [Endpoint]: {
-    GET: { response: File }
+  // DynamicParam: Matches single path segments (e.g., /users/:id)
+  [DynamicParam]: {
+    [Endpoint]: {
+      GET: { response: User }
+    }
+  }
+
+  // WildcardParam: Matches multiple path segments (e.g., /files/*)
+  [WildcardParam]: {
+    [Endpoint]: {
+      GET: { response: File }
+    }
   }
 }
 ```
@@ -395,12 +397,12 @@ interface UserAPI {
   '/api/users': {
     [Endpoint]: {
       GET: { response: User[] }
-      POST: { body: CreateUser; response: User }
+      POST: { body: CreateUser, response: User }
     }
     [DynamicParam]: {
       [Endpoint]: {
         GET: { response: User }
-        PUT: { body: UpdateUser; response: User }
+        PUT: { body: UpdateUser, response: User }
         DELETE: { response: { success: boolean } }
       }
     }
@@ -410,13 +412,13 @@ interface UserAPI {
 interface PostAPI {
   '/api/posts': {
     [Endpoint]: {
-      GET: { query?: { limit?: number }; response: Post[] }
-      POST: { body: CreatePost; response: Post }
+      GET: { query?: { limit?: number }, response: Post[] }
+      POST: { body: CreatePost, response: Post }
     }
     [DynamicParam]: {
       [Endpoint]: {
         GET: { response: Post }
-        PUT: { body: UpdatePost; response: Post }
+        PUT: { body: UpdatePost, response: Post }
         DELETE: { response: { success: boolean } }
       }
     }
@@ -467,8 +469,8 @@ interface APISchema {
       [Endpoint]: {
         GET: {
           response:
-            | { success: true; data: User }
-            | { success: false; error: string; code: number }
+            | { success: true, data: User }
+            | { success: false, error: string, code: number }
         }
       }
     }
@@ -479,7 +481,8 @@ interface APISchema {
 const result = await api('/api/users/123')
 if (result.success) {
   console.log(result.data.name) // ✅ Type-safe access
-} else {
+}
+else {
   console.error(`Error ${result.code}: ${result.error}`)
 }
 ```

@@ -55,5 +55,4 @@ async function typedFetch<T extends TypedFetchInput<ExampleSchema>>(_input: T) {
   return {} as Promise<TypedFetchResponse<ExampleSchema, T>>
 }
 
-// eslint-disable-next-line antfu/no-top-level-await
 const _res = await typedFetch('/api/foo')
