@@ -2,23 +2,23 @@ import type { ResponseHeaderMap } from './http'
 
 export interface TypedHeaders<TypedHeaderValues extends Record<string, string> | unknown> extends Omit<Headers, 'append' | 'delete' | 'get' | 'getSetCookie' | 'has' | 'set' | 'forEach'> {
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/append) */
-  append: <Name extends string = keyof TypedHeaderValues & string> (name: Name, value: Name extends string ? Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string : string) => void
+  append: <Name extends Extract<keyof TypedHeaderValues, string> | string & {}> (name: Name, value: Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string) => void
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/delete) */
-  delete: <Name extends string = keyof TypedHeaderValues & string> (name: Name) => void
+  delete: <Name extends Extract<keyof TypedHeaderValues, string> | string & {}> (name: Name) => void
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/get) */
-  get: <Name extends string = keyof TypedHeaderValues & string> (name: Name) => (Name extends string ? Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string : string) | null
+  get: <Name extends Extract<keyof TypedHeaderValues, string> | string & {}> (name: Name) => (Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string) | null
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/getSetCookie) */
   getSetCookie: () => string[]
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/has) */
-  has: <Name extends string = keyof TypedHeaderValues & string> (name: Name) => boolean
+  has: <Name extends Extract<keyof TypedHeaderValues, string> | string & {}> (name: Name) => boolean
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/set) */
-  set: <Name extends string = keyof TypedHeaderValues & string> (name: Name, value: Name extends string ? Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string : string) => void
-  forEach: (callbackfn: <Name extends string = keyof TypedHeaderValues & string>(value: Name extends string ? Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string : string, key: Name, parent: Headers) => void, thisArg?: any) => void
+  set: <Name extends Extract<keyof TypedHeaderValues, string> | string & {}> (name: Name, value: Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string) => void
+  forEach: (callbackfn: (value: TypedHeaderValues[keyof TypedHeaderValues] | string & {}, key: Extract<keyof TypedHeaderValues, string> | string & {}, parent: TypedHeaders<TypedHeaderValues>) => void, thisArg?: any) => void
 }
 
 // type TypedHeaderTuples<TypedHeaderValues extends Record<string, string>> = {
-//   [Name in Lowercase<keyof TypedHeaderValues & string>]: [Name, Name extends string ? Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string : string]
-// }[Lowercase<keyof TypedHeaderValues & string>][]
+//   [Name in Lowercase<Extract<keyof TypedHeaderValues, string>>]: [Name, Name extends string ? Lowercase<Name> extends keyof TypedHeaderValues ? TypedHeaderValues[Lowercase<Name>] : string : string]
+// }[Lowercase<Extract<keyof TypedHeaderValues, string>>][]
 
 // type TypedHeadersInit<TypedHeaderValues extends Record<string, string>> = TypedHeaderTuples<TypedHeaderValues> | Partial<TypedHeaderValues> | TypedHeaders<TypedHeaderValues> | Headers
 
