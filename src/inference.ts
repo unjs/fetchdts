@@ -73,7 +73,7 @@ export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pa
         : never
 }[keyof Schema]
 
-export type TypedFetchResponse<Schema, Endpoint, Method extends HTTPMethod = 'GET'> =
+export type TypedFetchResponseBody<Schema, Endpoint, Method extends HTTPMethod = 'GET'> =
   TypedFetchMeta<Schema, Endpoint, Method> extends never
     ? 'response' extends keyof TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>
       ? TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>['response']
