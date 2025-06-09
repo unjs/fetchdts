@@ -31,7 +31,7 @@ export interface TypedResponse<Body = unknown, Headers extends Record<string, st
 }
 
 export interface TypedRequest<Body = unknown, Headers extends Record<string, string> | unknown = ResponseHeaderMap> extends Omit<Request, 'clone' | 'headers' | 'json'> {
-  clone: () => TypedRequest<Headers>
+  clone: () => TypedRequest<Body, Headers>
   json: () => Promise<Body>
   headers: TypedHeaders<Headers>
 }
