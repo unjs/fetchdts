@@ -203,7 +203,7 @@ describe('TypedRequest', () => {
     expectTypeOf<CreateUserRequest['json']>().returns.toEqualTypeOf<Promise<{ name: string, email: string }>>()
 
     // clone() should return TypedRequest with same header type
-    expectTypeOf<CreateUserRequest['clone']>().returns.toEqualTypeOf<TypedRequest<ResponseHeaderMap>>()
+    expectTypeOf<CreateUserRequest['clone']>().returns.toEqualTypeOf<TypedRequest<{ name: string, email: string }, ResponseHeaderMap>>()
   })
 
   it('should type request headers correctly', () => {
@@ -305,7 +305,7 @@ describe('TypedRequest', () => {
 
     // clone() should return TypedRequest with the Headers type (not Body type)
     // This matches the implementation which has clone: () => TypedRequest<Headers>
-    expectTypeOf<CustomRequest['clone']>().returns.toEqualTypeOf<TypedRequest<CustomHeaders>>()
+    expectTypeOf<CustomRequest['clone']>().returns.toEqualTypeOf<TypedRequest<{ data: string }, CustomHeaders>>()
   })
 })
 
