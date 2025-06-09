@@ -1,7 +1,7 @@
 {
   "name": "fetchdts",
   "type": "module",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "packageManager": "pnpm@10.11.1",
   "description": "A suite of type utilities for building strongly-typed APIs",
   "author": {
