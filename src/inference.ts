@@ -73,8 +73,8 @@ export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pa
         : never
 }[keyof Schema]
 
-export type TypedFetchResponseBody<Schema, Endpoint, Method extends HTTPMethod = 'GET'> =
-  TypedFetchMeta<Schema, Endpoint, Method> extends never
+export type TypedFetchResponseBody<Schema, Endpoint, Method extends HTTPMethod = 'GET'>
+  = TypedFetchMeta<Schema, Endpoint, Method> extends never
     ? 'response' extends keyof TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>
       ? TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>['response']
       : never
@@ -82,8 +82,8 @@ export type TypedFetchResponseBody<Schema, Endpoint, Method extends HTTPMethod =
       ? TypedFetchMeta<Schema, Endpoint, Method>['response']
       : never
 
-export type TypedFetchResponseHeaders<Schema, Endpoint, Method extends HTTPMethod = 'GET'> =
-  TypedFetchMeta<Schema, Endpoint, Method> extends never
+export type TypedFetchResponseHeaders<Schema, Endpoint, Method extends HTTPMethod = 'GET'>
+  = TypedFetchMeta<Schema, Endpoint, Method> extends never
     ? 'responseHeaders' extends keyof TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>
       ? TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>['responseHeaders']
       : never
