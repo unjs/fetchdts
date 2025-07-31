@@ -1,4 +1,4 @@
-import type { ResponseHeaderMap } from './http'
+import type { RequestHeaderMap, ResponseHeaderMap } from './http'
 
 export interface TypedHeaders<TypedHeaderValues extends Record<string, string> | unknown> extends Omit<Headers, 'append' | 'delete' | 'get' | 'getSetCookie' | 'has' | 'set' | 'forEach'> {
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/append) */
@@ -30,7 +30,7 @@ export interface TypedResponse<Body = unknown, Headers extends Record<string, st
   headers: TypedHeaders<Headers>
 }
 
-export interface TypedRequest<Body = unknown, Headers extends Record<string, string> | unknown = ResponseHeaderMap> extends Omit<Request, 'clone' | 'headers' | 'json'> {
+export interface TypedRequest<Body = unknown, Headers extends Record<string, string> | unknown = RequestHeaderMap> extends Omit<Request, 'clone' | 'headers' | 'json'> {
   clone: () => TypedRequest<Body, Headers>
   json: () => Promise<Body>
   headers: TypedHeaders<Headers>
