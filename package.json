@@ -41,7 +41,7 @@
     "@vitest/coverage-v8": "4.0.6",
     "bumpp": "10.3.1",
     "changelogithub": "13.16.1",
-    "eslint": "9.39.0",
+    "eslint": "9.39.1",
     "installed-check": "9.3.0",
     "knip": "5.67.1",
     "lint-staged": "16.2.6",
