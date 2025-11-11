@@ -5,5 +5,4 @@ ignoredBuiltDependencies:
   - unrs-resolver
 onlyBuiltDependencies:
   - simple-git-hooks
-trustPolicy: no-downgrade
 
