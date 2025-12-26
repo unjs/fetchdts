@@ -2,7 +2,7 @@
   "name": "fetchdts",
   "type": "module",
   "version": "0.1.7",
-  "packageManager": "pnpm@10.21.0",
+  "packageManager": "pnpm@10.26.2",
   "description": "A suite of type utilities for building strongly-typed APIs",
   "author": {
     "name": "Daniel Roe",
@@ -36,15 +36,15 @@
     "test:types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "6.2.0",
+    "@antfu/eslint-config": "6.7.3",
     "@types/node": "latest",
     "@vitest/coverage-v8": "4.0.16",
-    "bumpp": "10.3.1",
+    "bumpp": "10.3.2",
     "changelogithub": "14.0.0",
     "eslint": "9.39.2",
     "installed-check": "9.3.0",
-    "knip": "5.68.0",
-    "lint-staged": "16.2.6",
+    "knip": "5.77.4",
+    "lint-staged": "16.2.7",
     "simple-git-hooks": "2.13.1",
     "typescript": "5.9.3",
     "unbuild": "3.6.1",
