@@ -36,7 +36,7 @@
     "test:types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "6.2.0",
+    "@antfu/eslint-config": "7.4.3",
     "@types/node": "latest",
     "@vitest/coverage-v8": "4.0.18",
     "bumpp": "10.3.1",
