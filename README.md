@@ -520,9 +520,9 @@ Published under [MIT License](./LICENCE).
 
 <!-- Badges -->
 
-[npm-version-src]: https://img.shields.io/npm/v/fetchdts?style=flat-square
-[npm-version-href]: https://npmjs.com/package/fetchdts
-[npm-downloads-src]: https://img.shields.io/npm/dm/fetchdts?style=flat-square
+[npm-version-src]: https://npmx.dev/api/registry/badge/version/fetchdts
+[npm-version-href]: https://npmx.dev/package/fetchdts
+[npm-downloads-src]: https://npmx.dev/api/registry/badge/downloads/fetchdts
 [npm-downloads-href]: https://npm.chart.dev/fetchdts
 [github-actions-src]: https://img.shields.io/github/actions/workflow/status/unjs/fetchdts/ci.yml?branch=main&style=flat-square
 [github-actions-href]: https://github.com/unjs/fetchdts/actions?query=workflow%3Aci
