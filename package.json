@@ -50,9 +50,6 @@
     "unbuild": "3.6.1",
     "vitest": "4.0.18"
   },
-  "resolutions": {
-    "fetchdts": "link:."
-  },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"
   },

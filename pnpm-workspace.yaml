@@ -5,3 +5,6 @@ ignoredBuiltDependencies:
   - unrs-resolver
 onlyBuiltDependencies:
   - simple-git-hooks
+
+overrides:
+  fetchdts: "link:."
