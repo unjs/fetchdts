@@ -42,7 +42,7 @@
     "bumpp": "10.3.1",
     "changelogithub": "14.0.0",
     "eslint": "9.39.2",
-    "installed-check": "9.3.0",
+    "installed-check": "10.0.1",
     "knip": "5.68.0",
     "lint-staged": "16.2.6",
     "simple-git-hooks": "2.13.1",
