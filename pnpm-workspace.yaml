@@ -6,8 +6,8 @@ packages:
   - playground
 overrides:
   fetchdts: 'link:.'
-ignoredBuiltDependencies:
-  - esbuild
-  - unrs-resolver
-onlyBuiltDependencies:
-  - simple-git-hooks
+
+allowBuilds:
+  esbuild: false
+  simple-git-hooks: true
+  unrs-resolver: false
