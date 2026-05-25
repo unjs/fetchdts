@@ -30,8 +30,8 @@ importers:
         specifier: 9.39.2
         version: 9.39.2(jiti@2.7.0)
       installed-check:
-        specifier: 9.3.0
-        version: 9.3.0
+        specifier: 10.0.1
+        version: 10.0.1
       knip:
         specifier: 6.14.2
         version: 6.14.2(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
@@ -2107,9 +2107,9 @@ packages:
     resolution: {integrity: sha512-5yH+YyCw2AO1OQpOSce2yUaooOSrK8XXmkOn2xdVpdtpt0pqwfdqU77FIpWN4fPHDcINKUf4R7hgDEfqpy1Z9g==}
     engines: {node: '>=18.6.0'}
 
-  installed-check@9.3.0:
-    resolution: {integrity: sha512-4aL5tUyCc/MVkaKnTqg5CdMa20uf7HYHjHJfiv4WeIoBoSKDLd/frMnIRUglnUovHUHrwRuzUDHOd4DidHKkkA==}
-    engines: {node: '>=18.6.0'}
+  installed-check@10.0.1:
+    resolution: {integrity: sha512-jJDj07Sm2K5fwpnFjnwZjyjeUrWnTx1bHYZu1Lcj2C/l1mYpsujUUhiNpgsxQdKuFbcdvngqHV5MUaYFppZtDA==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
     hasBin: true
 
   is-binary-path@2.1.0:
@@ -2358,10 +2358,6 @@ packages:
 
   mdn-data@2.12.2:
     resolution: {integrity: sha512-IEn+pegP1aManZuckezWCO+XZQDplx1366JoVhTpMpBB1sPey/SbveZQUosKiKiGYjg1wH4pMlNgXbCiYgihQA==}
-
-  meow@12.1.1:
-    resolution: {integrity: sha512-BhXM0Au22RwUneMPwSCnyhTOizdWoIEPU9sp0Aqa1PnDMR5Wv2FGXYDjuzJEIX+Eo2Rb8xuYe5jrnm5QowQFkw==}
-    engines: {node: '>=16.10'}
 
   micromark-core-commonmark@2.0.3:
     resolution: {integrity: sha512-RDBrHEMSxVFLg6xvnXmb1Ayr2WzLAWjeSATAoxwKYJV94TeNavgoIdA0a9ytzDSVzBy2YKFK+emCPOEibLeCrg==}
@@ -2666,6 +2662,10 @@ packages:
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
+  peowly@1.3.3:
+    resolution: {integrity: sha512-5UmUtvuCv3KzBX2NuQw2uF28o0t8Eq4KkPRZfUCzJs+DiNVKw7OaYn29vNDgrt/Pggs23CPlSTqgzlhHJfpT0A==}
+    engines: {node: '>=18.6.0', typescript: '>=5.8'}
+
   perfect-debounce@1.0.0:
     resolution: {integrity: sha512-xCy9V055GLEqoFaHoC1SoLIaLmWctgCUaBaWxDZ7/Zx4CTyX7cJQLJOok/orfjZAh9kEYpjJa4d0KcJmCbctZA==}
 
@@ -2956,6 +2956,9 @@ packages:
 
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
+
+  resolve-workspace-root@2.0.1:
+    resolution: {integrity: sha512-nR23LHAvaI6aHtMg6RWoaHpdR4D881Nydkzi2CixINyg9T00KgaJdJI6Vwty+Ps8WLxZHuxsS0BseWjxSA4C+w==}
 
   resolve@1.22.11:
     resolution: {integrity: sha512-RfqAvLnMl313r7c9oclB1HhUEAezcpLjz95wFH4LVuhk9JF/r22qmVP9AMmOU4vMX7Q8pN8jwNg/CSpdFnMjTQ==}
@@ -5328,12 +5331,13 @@ snapshots:
       picomatch: 4.0.4
       semver: 7.7.3
 
-  installed-check@9.3.0:
+  installed-check@10.0.1:
     dependencies:
       chalk: 5.6.2
       installed-check-core: 8.3.1
-      meow: 12.1.1
+      peowly: 1.3.3
       pony-cause: 2.1.11
+      resolve-workspace-root: 2.0.1
       version-guard: 1.1.3
 
   is-binary-path@2.1.0:
@@ -5659,8 +5663,6 @@ snapshots:
   mdn-data@2.0.28: {}
 
   mdn-data@2.12.2: {}
-
-  meow@12.1.1: {}
 
   micromark-core-commonmark@2.0.3:
     dependencies:
@@ -6101,6 +6103,8 @@ snapshots:
 
   pathe@2.0.3: {}
 
+  peowly@1.3.3: {}
+
   perfect-debounce@1.0.0: {}
 
   perfect-debounce@2.1.0: {}
@@ -6367,6 +6371,8 @@ snapshots:
   resolve-from@4.0.0: {}
 
   resolve-pkg-maps@1.0.0: {}
+
+  resolve-workspace-root@2.0.1: {}
 
   resolve@1.22.11:
     dependencies:
