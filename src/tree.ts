@@ -1,9 +1,9 @@
 import type { HTTPMethod } from './http'
 
 export type StaticParam = string // for readability only
-export const DynamicParam = Symbol.for('dynamic parameter')
-export const WildcardParam = Symbol.for('wildcard parameter')
-export const Endpoint = Symbol.for('endpoints')
+export const DynamicParam: unique symbol = Symbol.for('dynamic parameter') as never
+export const WildcardParam: unique symbol = Symbol.for('wildcard parameter') as never
+export const Endpoint: unique symbol = Symbol.for('endpoints') as never
 
 export interface RouteTree {
   [key: string | symbol]: Partial<Endpoints> | RouteTree
