@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "9.2.0",
-    "@types/node": "latest",
+    "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "4.1.10",
     "eslint": "10.8.0",
     "installed-check": "10.0.1",
