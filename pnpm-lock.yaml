@@ -15,7 +15,7 @@ importers:
         specifier: 9.3.0
         version: 9.3.0(@typescript-eslint/typescript-estree@8.66.0(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.66.0(eslint@10.8.1(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.35)(eslint@10.8.1(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@4.1.10)
       '@types/node':
-        specifier: ^26.2.0
+        specifier: 26.2.0
         version: 26.2.0
       '@vitest/coverage-v8':
         specifier: 4.1.10
