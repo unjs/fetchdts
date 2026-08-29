@@ -76,9 +76,9 @@ type ParamMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pat
   [K in keyof Schema]: K extends typeof DynamicParam
     ? TypedFetchMeta<Schema[K], AfterSegment<Path>, Method, LiteralSegment<Path> extends false ? 'ambiguous' : Pattern>
     : K extends typeof WildcardParam
-      ? [NonEmptySegments<Path>] extends [never]
-          ? never
-          : TypedFetchMeta<Schema[K], '', Method, Pattern>
+      ? HasSegment<Path> extends true
+        ? TypedFetchMeta<Schema[K], '', Method, Pattern>
+        : never
       : never
 }[keyof Schema]
 
@@ -113,13 +113,18 @@ type LiteralSegment<Path extends string>
       : string extends Rest ? false : true
     : true
 
-/** `Path` itself if it contains at least one non-empty segment, otherwise `never`. */
-type NonEmptySegments<Path extends string>
+/**
+ * Whether `Path` contains at least one non-empty segment, which a wildcard requires to match.
+ * Repeated slashes contribute no segment, so `'//'` is as empty as `'/'`.
+ */
+type HasSegment<Path extends string>
   = Path extends `/${infer Rest}`
     ? Rest extends ''
-      ? never
-      : Path
-    : never
+      ? false
+      : Rest extends `/${string}`
+        ? HasSegment<Rest>
+        : true
+    : false
 
 /** The remainder of `Path` after consuming a single non-empty segment. */
 type AfterSegment<Path extends string>

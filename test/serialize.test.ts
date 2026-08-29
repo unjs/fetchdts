@@ -191,4 +191,32 @@ describe('serialize', () => {
       }"
     `)
   })
+
+  it('should not emit an endpoint for a route with no method metadata', () => {
+    const tree = serializeRoutes('InternalRoutes', [
+      { segments: ['/api', '/empty'], metadata: {} },
+      { segments: ['/api', '/undefined'], metadata: { GET: undefined } },
+      { segments: ['/api', '/partial'], metadata: { GET: { responseType: 'Ok' }, POST: undefined } },
+    ])
+
+    expect(tree).toMatchInlineSnapshot(`
+      "import type { Endpoint } from 'fetchdts'
+
+      interface InternalRoutes {
+        "/api": {
+          "/empty": {
+          }
+          "/undefined": {
+          }
+          "/partial": {
+            [Endpoint]: {
+              "GET": {
+                "response": Ok
+              }
+            }
+          }
+        }
+      }"
+    `)
+  })
 })

@@ -55,6 +55,13 @@ describe('nested route resolution', () => {
     expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files/a'>>().toEqualTypeOf<9>()
   })
 
+  it('requires a wildcard to consume a non-empty segment', () => {
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files/'>>().toBeNever()
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files//'>>().toBeNever()
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files///'>>().toBeNever()
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files//a'>>().toEqualTypeOf<9>()
+  })
+
   it('returns never for unmatched paths', () => {
     expectTypeOf<TypedFetchResponseBody<StaticDepth3, '/a/b'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<StaticDepth3, '/a/b/d'>>().toBeNever()

@@ -56,22 +56,27 @@ export function serializeRoutes(name: string, routes: Route[], options?: OutputO
     }
 
     // an endpoint with no methods would be offered as a valid path but resolve to `never`, so a
-    // route without metadata contributes its segments and nothing else
-    if (!route.metadata) {
+    // route with no method metadata contributes its segments and nothing else
+    const methods = Object.entries(route.metadata || {})
+      .filter((entry): entry is [string, Record<string, string>] => entry[1] !== undefined)
+    if (methods.length === 0) {
       continue
     }
 
     imports.add('Endpoint')
-    if ('ALL' in route.metadata) {
+    if (methods.some(([method]) => method === 'ALL')) {
       imports.add('HTTPMethod')
     }
 
     // distinct patterns can share a node, such as two parameters distinguished only by a constraint
     // the schema cannot express, so types are collected per field rather than overwritten
     const endpoints = (node[Endpoint] = (node[Endpoint] as RouteTree) || {}) as Record<string, Record<string, string[]>>
-    for (const [method, metadata] of Object.entries(route.metadata)) {
+    for (const [method, metadata] of methods) {
       const existing = endpoints[method] = endpoints[method] || {}
-      for (const [field, type] of Object.entries(metadata as Record<string, string>)) {
+      for (const [field, type] of Object.entries(metadata)) {
+        if (type === undefined) {
+          continue
+        }
         const types = existing[field] = existing[field] || []
         if (!types.includes(type)) {
           types.push(type)
