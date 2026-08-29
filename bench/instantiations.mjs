@@ -3,7 +3,7 @@
 // Usage: node bench/instantiations.mjs [--routes 150] [--calls 60] [--depth 3] [--src ./src]
 
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
@@ -15,9 +15,18 @@ function arg(name, fallback) {
   return index === -1 ? fallback : args[index + 1]
 }
 
-const routes = Number(arg('routes', 150))
-const calls = Number(arg('calls', 60))
-const depth = Number(arg('depth', 3))
+function count(name, fallback, minimum) {
+  const value = Number(arg(name, fallback))
+  if (!Number.isInteger(value) || value < minimum) {
+    console.error(`--${name} must be an integer >= ${minimum}, received ${arg(name, fallback)}`)
+    process.exit(1)
+  }
+  return value
+}
+
+const routes = count('routes', 150, 1)
+const calls = count('calls', 60, 0)
+const depth = count('depth', 3, 1)
 const root = fileURLToPath(new URL('..', import.meta.url))
 const src = path.resolve(root, arg('src', 'src'))
 
@@ -62,9 +71,12 @@ const schema = stringify(tree)
 const dir = mkdtempSync(path.join(tmpdir(), 'fetchdts-bench-'))
 mkdirSync(dir, { recursive: true })
 
-let source = `import type { DynamicParam, Endpoint } from '${path.join(src, 'tree')}'\n`
-source += `import type { TypedFetchInput, TypedFetchRequestInit, TypedFetchResponseBody } from '${path.join(src, 'inference')}'\n`
-source += `import type { Trimmed } from '${path.join(src, 'utils')}'\n\n`
+// module specifiers always use forward slashes, including on Windows
+const specifier = name => path.join(src, name).replaceAll(path.sep, '/')
+
+let source = `import type { DynamicParam, Endpoint } from '${specifier('tree')}'\n`
+source += `import type { TypedFetchInput, TypedFetchRequestInit, TypedFetchResponseBody } from '${specifier('inference')}'\n`
+source += `import type { Trimmed } from '${specifier('utils')}'\n\n`
 source += `interface Schema {\n${schema}}\n\n`
 source += `declare function $fetch<T extends TypedFetchInput<Schema>, Init extends TypedFetchRequestInit<Schema, T>>(input: T, init?: Init): TypedFetchResponseBody<Schema, Trimmed<T>, 'GET'>\n\n`
 for (let i = 0; i < calls; i++) {
@@ -90,21 +102,31 @@ writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({
   include: ['index.ts'],
 }, null, 2))
 
-const tsc = path.join(root, 'node_modules/.bin/tsc')
-let output
-try {
-  output = execFileSync(tsc, ['-p', dir, '--extendedDiagnostics'], { encoding: 'utf8' })
-}
-catch (error) {
-  output = error.stdout
-  const errors = output.split('\n').filter(line => line.includes(': error TS'))
-  console.error(`${errors.length} type errors in generated fixture, first:\n${errors[0]}`)
-}
+// the `.bin` shim is a `.cmd` file on Windows, which `execFileSync` cannot run directly
+const tsc = path.join(root, 'node_modules/typescript/bin/tsc')
 
-const wanted = ['Instantiations', 'Types', 'Memory used', 'Total time', 'Check time']
-console.log(`routes=${routes} calls=${calls} depth=${depth} src=${path.relative(root, src) || 'src'}`)
-for (const line of output.split('\n')) {
-  if (wanted.some(key => line.startsWith(key))) {
-    console.log(`  ${line.trim()}`)
+try {
+  let output
+  try {
+    output = execFileSync(process.execPath, [tsc, '-p', dir, '--extendedDiagnostics'], { encoding: 'utf8' })
   }
+  catch (error) {
+    output = error.stdout || ''
+    const errors = output.split('\n').filter(line => line.includes(': error TS'))
+    console.error(errors.length > 0
+      ? `${errors.length} type errors in generated fixture, first:\n${errors[0]}`
+      : `tsc failed without diagnostics:\n${error.stderr || error.message}`)
+    process.exitCode = 1
+  }
+
+  const wanted = ['Instantiations', 'Types', 'Memory used', 'Total time', 'Check time']
+  console.log(`routes=${routes} calls=${calls} depth=${depth} src=${path.relative(root, src) || 'src'}`)
+  for (const line of output.split('\n')) {
+    if (wanted.some(key => line.startsWith(key))) {
+      console.log(`  ${line.trim()}`)
+    }
+  }
+}
+finally {
+  rmSync(dir, { recursive: true, force: true })
 }
