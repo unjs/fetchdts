@@ -1,6 +1,11 @@
 /* eslint-disable no-console */
 // Measures tsc type instantiations for a generated N-route schema.
 // Usage: node bench/instantiations.mjs [--routes 150] [--calls 60] [--depth 3] [--src ./src]
+//                                      [--siblings 0] [--template]
+//
+// --siblings adds N static routes alongside each dynamic one, and --template requests the dynamic
+// routes with a template literal (`/a/b/${string}`) rather than a concrete path, which together
+// measure what a template-literal request costs when its node has static siblings.
 
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -27,6 +32,8 @@ function count(name, fallback, minimum) {
 const routes = count('routes', 150, 1)
 const calls = count('calls', 60, 0)
 const depth = count('depth', 3, 1)
+const siblings = count('siblings', 0, 0)
+const template = args.includes('--template')
 const root = fileURLToPath(new URL('..', import.meta.url))
 const src = path.resolve(root, arg('src', 'src'))
 
@@ -46,13 +53,20 @@ for (let i = 0; i < routes; i++) {
     node[segment] ||= {}
     node = node[segment]
   }
+  const parent = node
   if (dynamic) {
     node['[DynamicParam]'] ||= {}
     node = node['[DynamicParam]']
   }
   node['[Endpoint]'] = `{ GET: { response: { id: number, route: '${i}' } }, POST: { body: { id: number }, response: { ok: true } } }`
 
-  paths.push(segments.join('') + (dynamic ? '/1' : ''))
+  if (dynamic) {
+    for (let sibling = 0; sibling < siblings; sibling++) {
+      parent[`/sibling${sibling}`] ||= { '[Endpoint]': `{ GET: { response: { sibling: ${sibling} } } }` }
+    }
+  }
+
+  paths.push({ prefix: segments.join(''), dynamic })
 }
 
 function stringify(node, indent = 2) {
@@ -71,17 +85,22 @@ const schema = stringify(tree)
 const dir = mkdtempSync(path.join(tmpdir(), 'fetchdts-bench-'))
 mkdirSync(dir, { recursive: true })
 
-// module specifiers always use forward slashes, including on Windows
-const specifier = name => path.join(src, name).replaceAll(path.sep, '/')
+// module specifiers always use forward slashes, including on Windows, and are quoted rather than
+// interpolated so that a project path containing a quote still emits valid TypeScript
+const specifier = name => JSON.stringify(path.join(src, name).replaceAll(path.sep, '/'))
 
-let source = `import type { DynamicParam, Endpoint } from '${specifier('tree')}'\n`
-source += `import type { TypedFetchInput, TypedFetchRequestInit, TypedFetchResponseBody } from '${specifier('inference')}'\n`
-source += `import type { Trimmed } from '${specifier('utils')}'\n\n`
+let source = `import type { DynamicParam, Endpoint } from ${specifier('tree')}\n`
+source += `import type { TypedFetchInput, TypedFetchRequestInit, TypedFetchResponseBody } from ${specifier('inference')}\n`
+source += `import type { Trimmed } from ${specifier('utils')}\n\n`
 source += `interface Schema {\n${schema}}\n\n`
 source += `declare function $fetch<T extends TypedFetchInput<Schema>, Init extends TypedFetchRequestInit<Schema, T>>(input: T, init?: Init): TypedFetchResponseBody<Schema, Trimmed<T>, 'GET'>\n\n`
+source += 'declare const param: string\n\n'
 for (let i = 0; i < calls; i++) {
-  const index = i % paths.length
-  source += `export const result${i} = $fetch('${paths[index]}')\n`
+  const { prefix, dynamic } = paths[i % paths.length]
+  const input = dynamic
+    ? template ? `\`${prefix}/\${param}\`` : `'${prefix}/1'`
+    : `'${prefix}'`
+  source += `export const result${i} = $fetch(${input})\n`
   // an unresolved path yields `never`, which would otherwise satisfy every annotation and make a broken matcher look cheap
   source += `const resolved${i}: true = 0 as unknown as [typeof result${i}] extends [never] ? false : true\n`
   source += `void resolved${i}\n`
