@@ -60,7 +60,9 @@ describe('nested route resolution', () => {
     expectTypeOf<TypedFetchResponseBody<StaticDepth3, '/a/b/d'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<StaticAfterDynamic, '/api/users/123/comments'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files/'>>().toBeNever()
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/filesystem'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<Depth1, '/posts/'>>().toBeNever()
+    expectTypeOf<TypedFetchResponseBody<Depth1, '/postscript'>>().toBeNever()
   })
 
   it('lists nested paths as valid input', () => {

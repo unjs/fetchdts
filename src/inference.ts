@@ -88,7 +88,7 @@ type NonEmptySegments<Path extends string>
     ? Rest extends ''
       ? never
       : Path
-    : Path
+    : never
 
 /** The remainder of `Path` after consuming a single non-empty segment. */
 type AfterSegment<Path extends string>

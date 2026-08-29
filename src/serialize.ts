@@ -95,7 +95,7 @@ const keys: Record<symbol | string, string> = {
   [Endpoint]: '[Endpoint]',
 }
 
-function stringifyRouteTree(tree: RouteTree, indent = 2): string {
+function stringifyRouteTree(tree: RouteTree, indent = 2, metadata = false): string {
   let properties = ''
   const entries = [
     ...Object.entries(tree),
@@ -105,7 +105,9 @@ function stringifyRouteTree(tree: RouteTree, indent = 2): string {
     if (!value) {
       continue
     }
-    const key = keys[_key] || JSON.stringify((_key as string).replace(/Type$/, ''))
+    // the `Type` suffix belongs to metadata fields (`responseType` -> `response`); a static
+    // segment that happens to end in `Type` keeps its name
+    const key = keys[_key] || JSON.stringify(metadata ? (_key as string).replace(/Type$/, '') : _key as string)
     if (_key === Endpoint) {
       properties += `${' '.repeat(indent)}${key}: ${stringifyEndpoints(value as Record<string, Record<string, string[]>>, indent)}\n`
     }
@@ -118,7 +120,7 @@ function stringifyRouteTree(tree: RouteTree, indent = 2): string {
       properties += `${' '.repeat(indent)}${key}: ${value}\n`
     }
     else {
-      const str = stringifyRouteTree(value as RouteTree, indent + 2)
+      const str = stringifyRouteTree(value as RouteTree, indent + 2, metadata)
       properties += `${' '.repeat(indent)}${key}: {\n${str}${' '.repeat(indent)}}\n`
     }
   }
@@ -135,7 +137,7 @@ function stringifyEndpoints(endpoints: Record<string, Record<string, string[]>>,
   const named = Object.keys(methods)
 
   const specific = named.length > 0
-    ? `{\n${stringifyRouteTree(methods as unknown as RouteTree, indent + 2)}${' '.repeat(indent)}}`
+    ? `{\n${stringifyRouteTree(methods as unknown as RouteTree, indent + 2, true)}${' '.repeat(indent)}}`
     : undefined
 
   if (!all) {
@@ -145,7 +147,7 @@ function stringifyEndpoints(endpoints: Record<string, Record<string, string[]>>,
   const covered = named.length > 0
     ? `Exclude<HTTPMethod, ${named.map(method => JSON.stringify(method)).join(' | ')}>`
     : 'HTTPMethod'
-  const record = `Record<${covered}, {\n${stringifyRouteTree(all as unknown as RouteTree, indent + 2)}${' '.repeat(indent)}}>`
+  const record = `Record<${covered}, {\n${stringifyRouteTree(all as unknown as RouteTree, indent + 2, true)}${' '.repeat(indent)}}>`
 
   return specific ? `${record} & ${specific}` : record
 }

@@ -145,6 +145,28 @@ describe('serialize', () => {
     `)
   })
 
+  it('should keep a static segment ending in `Type` intact', () => {
+    const tree = serializeRoutes('InternalRoutes', [
+      { segments: ['/api', '/contentType'], metadata: { GET: { responseType: 'string' } } },
+    ])
+
+    expect(tree).toMatchInlineSnapshot(`
+      "import type { Endpoint } from 'fetchdts'
+
+      interface InternalRoutes {
+        "/api": {
+          "/contentType": {
+            [Endpoint]: {
+              "GET": {
+                "response": string
+              }
+            }
+          }
+        }
+      }"
+    `)
+  })
+
   it('should not emit an endpoint for a route without metadata', () => {
     const tree = serializeRoutes('InternalRoutes', [
       { segments: ['/api', '/health'] },
