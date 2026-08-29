@@ -35,6 +35,20 @@ export const routes: Route[] = [
     },
   },
   {
+    // a handler registered for every method, as a route with no method is in nitro
+    segments: ['/api', '/ping'],
+    metadata: {
+      ALL: { responseType: '\'pong\'' },
+    },
+  },
+  {
+    segments: ['/api', '/search'],
+    metadata: {
+      ALL: { responseType: '{ results: string[] }' },
+      POST: { bodyType: '{ query: string }', responseType: '{ results: string[], total: number }' },
+    },
+  },
+  {
     segments: ['/api', '/files', WildcardParam],
     metadata: {
       GET: { responseType: 'Blob' },

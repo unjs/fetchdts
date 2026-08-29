@@ -28,8 +28,13 @@ export interface Route {
    * with whichever tool owns them (see the readme).
    */
   segments: RouteSegment[]
+  /**
+   * Types for the endpoint, per method. `ALL` describes a handler registered for every method, as
+   * a route with no method is in nitro and h3, and is emitted as a `Record` over `HTTPMethod` so
+   * that it stays compact; a specific method takes precedence over it.
+   */
   metadata?: {
-    [key in HTTPMethod]?: Partial<Record<`${keyof EndpointMetadata}Type`, string>>
+    [key in HTTPMethod | 'ALL']?: Partial<Record<`${keyof EndpointMetadata}Type`, string>>
   }
   [key: string]: unknown
 }
@@ -50,12 +55,21 @@ export function serializeRoutes(name: string, routes: Route[], options?: OutputO
       node = node[key] as RouteTree
     }
 
+    // an endpoint with no methods would be offered as a valid path but resolve to `never`, so a
+    // route without metadata contributes its segments and nothing else
+    if (!route.metadata) {
+      continue
+    }
+
     imports.add('Endpoint')
+    if ('ALL' in route.metadata) {
+      imports.add('HTTPMethod')
+    }
 
     // distinct patterns can share a node, such as two parameters distinguished only by a constraint
     // the schema cannot express, so types are collected per field rather than overwritten
     const endpoints = (node[Endpoint] = (node[Endpoint] as RouteTree) || {}) as Record<string, Record<string, string[]>>
-    for (const [method, metadata] of Object.entries(route.metadata || {})) {
+    for (const [method, metadata] of Object.entries(route.metadata)) {
       const existing = endpoints[method] = endpoints[method] || {}
       for (const [field, type] of Object.entries(metadata as Record<string, string>)) {
         const types = existing[field] = existing[field] || []
@@ -92,7 +106,10 @@ function stringifyRouteTree(tree: RouteTree, indent = 2): string {
       continue
     }
     const key = keys[_key] || JSON.stringify((_key as string).replace(/Type$/, ''))
-    if (Array.isArray(value)) {
+    if (_key === Endpoint) {
+      properties += `${' '.repeat(indent)}${key}: ${stringifyEndpoints(value as Record<string, Record<string, string[]>>, indent)}\n`
+    }
+    else if (Array.isArray(value)) {
       // each type is parenthesised, as arbitrary type source may not be safe to union unbracketed
       const type = value.length > 1 ? value.map(t => `(${t})`).join(' | ') : value[0]
       properties += `${' '.repeat(indent)}${key}: ${type}\n`
@@ -107,6 +124,30 @@ function stringifyRouteTree(tree: RouteTree, indent = 2): string {
   }
 
   return properties
+}
+
+/**
+ * Stringifies the methods of one endpoint. An `ALL` entry becomes a `Record` over every method,
+ * with any specific method excluded from it and intersected on, so that the specific entry wins.
+ */
+function stringifyEndpoints(endpoints: Record<string, Record<string, string[]>>, indent: number): string {
+  const { ALL: all, ...methods } = endpoints
+  const named = Object.keys(methods)
+
+  const specific = named.length > 0
+    ? `{\n${stringifyRouteTree(methods as unknown as RouteTree, indent + 2)}${' '.repeat(indent)}}`
+    : undefined
+
+  if (!all) {
+    return specific || `{\n${' '.repeat(indent)}}`
+  }
+
+  const covered = named.length > 0
+    ? `Exclude<HTTPMethod, ${named.map(method => JSON.stringify(method)).join(' | ')}>`
+    : 'HTTPMethod'
+  const record = `Record<${covered}, {\n${stringifyRouteTree(all as unknown as RouteTree, indent + 2)}${' '.repeat(indent)}}>`
+
+  return specific ? `${record} & ${specific}` : record
 }
 
 function segmentKey(segment: RouteSegment): string | symbol {

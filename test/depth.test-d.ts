@@ -147,4 +147,18 @@ describe('method-agnostic handlers', () => {
     expectTypeOf<TypedFetchResponseBody<AllMethods, '/api/hello'>>().toEqualTypeOf<{ hello: string }>()
     expectTypeOf<TypedFetchResponseBody<AllMethods, '/api/hello', 'PATCH'>>().toEqualTypeOf<{ hello: string }>()
   })
+
+  it('resolves the serialized `ALL` form for every method', () => {
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/ping'>>().toEqualTypeOf<'pong'>()
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/ping', 'DELETE'>>().toEqualTypeOf<'pong'>()
+    expectTypeOf<'/api/ping'>().toMatchTypeOf<TypedFetchInput<GeneratedRoutes>>()
+  })
+
+  it('prefers a specific method over the `ALL` form', () => {
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/search', 'POST'>>().toEqualTypeOf<{ results: string[], total: number }>()
+    expectTypeOf<TypedFetchMeta<GeneratedRoutes, '/api/search', 'POST'>['body']>().toEqualTypeOf<{ query: string }>()
+
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/search', 'GET'>>().toEqualTypeOf<{ results: string[] }>()
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/search', 'PATCH'>>().toEqualTypeOf<{ results: string[] }>()
+  })
 })

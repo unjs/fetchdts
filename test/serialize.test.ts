@@ -144,4 +144,29 @@ describe('serialize', () => {
       }"
     `)
   })
+
+  it('should not emit an endpoint for a route without metadata', () => {
+    const tree = serializeRoutes('InternalRoutes', [
+      { segments: ['/api', '/health'] },
+      { segments: ['/api', '/users'], metadata: { GET: { responseType: 'User[]' } } },
+    ])
+
+    expect(tree).toMatchInlineSnapshot(`
+      "import type { Endpoint } from 'fetchdts'
+
+      interface InternalRoutes {
+        "/api": {
+          "/health": {
+          }
+          "/users": {
+            [Endpoint]: {
+              "GET": {
+                "response": User[]
+              }
+            }
+          }
+        }
+      }"
+    `)
+  })
 })

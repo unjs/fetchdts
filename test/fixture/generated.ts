@@ -1,4 +1,4 @@
-import type { DynamicParam, Endpoint, WildcardParam } from 'fetchdts'
+import type { DynamicParam, Endpoint, HTTPMethod, WildcardParam } from 'fetchdts'
 
 export interface GeneratedRoutes {
   "/api": {
@@ -40,6 +40,21 @@ export interface GeneratedRoutes {
           "GET": {
             "response": { body: string }
           }
+        }
+      }
+    }
+    "/ping": {
+      [Endpoint]: Record<HTTPMethod, {
+        "response": 'pong'
+      }>
+    }
+    "/search": {
+      [Endpoint]: Record<Exclude<HTTPMethod, "POST">, {
+        "response": { results: string[] }
+      }> & {
+        "POST": {
+          "body": { query: string }
+          "response": { results: string[], total: number }
         }
       }
     }

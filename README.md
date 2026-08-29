@@ -300,15 +300,13 @@ const routes = endpoints.flatMap(({ pattern, method, responseType }) =>
           // escapes are preserved, so a literal `*` arrives as `\*`
           : segment.replace(/\\(.)/g, '$1'),
     ),
-    metadata: { [method]: { responseType } },
+    // a handler with no method is valid for every verb
+    metadata: { [method ?? 'ALL']: { responseType } },
   })),
 )
 
 const schema = serializeRoutes('APISchema', routes)
 ```
-
-For an endpoint that is valid for every method, see
-[Handlers Registered for Every Method](#handlers-registered-for-every-method).
 
 For filesystem routes, [`unrouting`](https://github.com/unjs/unrouting) parses the major conventions
 and converts between them, reporting each lossy step rather than silently widening a pattern.
@@ -401,6 +399,22 @@ interface APISchema {
     }
   }
 }
+```
+
+`serializeRoutes` emits that form for an `ALL` entry, which is worth using over spelling out every
+method, as the generated file is several times smaller:
+
+```ts
+serializeRoutes('APISchema', [
+  {
+    segments: ['/api', '/hello'],
+    metadata: {
+      ALL: { responseType: '{ hello: string }' },
+      // a specific method takes precedence over `ALL`
+      POST: { bodyType: '{ name: string }', responseType: 'Created' }
+    }
+  }
+])
 ```
 
 ### Cross-Domain API Support
