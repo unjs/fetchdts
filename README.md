@@ -48,7 +48,7 @@ interface APISchema {
         response: { id: number, name: string, email: string }
       }
     }
-    [DynamicParam]: { // /users/:id
+    [DynamicParam]: { // matches /users/123
       [Endpoint]: {
         GET: {
           response: { id: number, name: string, email: string }
@@ -149,14 +149,14 @@ interface Schema {
     POST: { body: Input, response: Data }
   }
 
-  // DynamicParam: Matches single path segments (e.g., /users/:id)
+  // DynamicParam: Matches a single path segment (e.g. the `123` of /users/123)
   [DynamicParam]: {
     [Endpoint]: {
       GET: { response: User }
     }
   }
 
-  // WildcardParam: Matches multiple path segments (e.g., /files/*)
+  // WildcardParam: Matches the rest of the path (e.g. the `a/b.txt` of /files/a/b.txt)
   [WildcardParam]: {
     [Endpoint]: {
       GET: { response: File }
@@ -229,14 +229,15 @@ const customHeader = response.headers.get('x-custom') // Typed based on schema
 ### Utilities
 
 #### `serializeRoutes(name, routes, options?)`
-Generate TypeScript schema from route definitions:
+
+Generate a TypeScript schema from route definitions. Each route is a list of segments, already split:
 
 ```ts
-import { serializeRoutes } from 'fetchdts'
+import { DynamicParam, serializeRoutes } from 'fetchdts'
 
 const schema = serializeRoutes('APISchema', [
   {
-    path: '/users',
+    segments: ['/users'],
     metadata: {
       GET: {
         responseType: 'User[]'
@@ -248,11 +249,10 @@ const schema = serializeRoutes('APISchema', [
     }
   },
   {
-    path: '/users/:id',
-    type: 'dynamic',
+    segments: ['/users', DynamicParam, '/posts'],
     metadata: {
       GET: {
-        responseType: 'User'
+        responseType: 'Post[]'
       }
     }
   }
@@ -261,6 +261,61 @@ const schema = serializeRoutes('APISchema', [
 console.log(schema)
 // Outputs TypeScript interface definition
 ```
+
+A segment is either static or a parameter:
+
+| Segment | Meaning |
+| --- | --- |
+| `'/users'`, `'users'`, `{ type: 'static', value: 'users' }` | a static segment |
+| `'https://api.example.com'` | an origin, for cross-domain schemas |
+| `DynamicParam`, `{ type: 'dynamic' }` | exactly one segment |
+| `WildcardParam`, `{ type: 'wildcard' }` | the rest of the path |
+
+The object form exists so that tools which cannot pass symbols across a serialisation boundary can
+still describe a route. Both forms produce identical output, and a static segment may itself contain
+slashes (`'/api/users'`), which keeps the emitted tree shallower.
+
+#### Converting route patterns
+
+`fetchdts` does not parse route patterns. Every router spells a parameter differently, and the
+schema only needs to know which segments are static, which match one segment, and which match the
+rest, so the conversion belongs to whichever tool already owns your patterns.
+
+If your patterns are [rou3](https://github.com/h3js/rou3) patterns, `routeNodeKeys` gives the
+canonical form directly, and gives it to you from the router that will serve the request, so the
+generated types cannot drift from the routing:
+
+```ts
+import { DynamicParam, serializeRoutes, WildcardParam } from 'fetchdts'
+import { routeNodeKeys } from 'rou3'
+
+const routes = endpoints.flatMap(({ pattern, method, responseType }) =>
+  // one pattern can land on several nodes: `/users/:id?` -> ['/users', '/users/*']
+  routeNodeKeys(pattern).map(key => ({
+    segments: key.split('/').slice(1).map(segment =>
+      segment === '*'
+        ? DynamicParam
+        : segment === '**'
+          ? WildcardParam
+          // escapes are preserved, so a literal `*` arrives as `\*`
+          : segment.replace(/\\(.)/g, '$1'),
+    ),
+    metadata: { [method]: { responseType } },
+  })),
+)
+
+const schema = serializeRoutes('APISchema', routes)
+```
+
+For an endpoint that is valid for every method, see
+[Handlers Registered for Every Method](#handlers-registered-for-every-method).
+
+For filesystem routes, [`unrouting`](https://github.com/unjs/unrouting) parses the major conventions
+and converts between them, reporting each lossy step rather than silently widening a pattern.
+
+Constrained parameters collapse onto one node: `/users/:id(\d+)` and `/users/:slug([a-z]+)` share a
+single dynamic segment in the schema, so their response types are unioned. Radix-tree routers group
+them the same way and re-check the constraint per node, which a type cannot do.
 
 ## Advanced Examples
 
@@ -332,6 +387,20 @@ await api('/api/users') // User[]
 await api('/api/users/123') // User
 await api('/api/users/123/posts') // Post[]
 await api('/api/users/123/posts/456') // Post
+```
+
+### Handlers Registered for Every Method
+
+A handler that is valid for every HTTP verb can be expressed compactly with `Record<HTTPMethod, ...>`:
+
+```ts
+interface APISchema {
+  '/api': {
+    '/hello': {
+      [Endpoint]: Record<HTTPMethod, { response: { hello: string } }>
+    }
+  }
+}
 ```
 
 ### Cross-Domain API Support

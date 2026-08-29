@@ -41,37 +41,61 @@ export type TypedFetchRequestInit<Schema, T> = {
     : { method?: RequestInit['method'] }
 ) & RespectOptionality<TypedFetchMeta<Schema, T>, 'body', RequestInit['body']>
 
-export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pattern extends 'exact' | 'dynamic' = 'exact'> = {
-  [K in keyof Schema]: K extends typeof Endpoint
-    ? '' extends Method
-      ? { [M in keyof Schema[K]]: { method: M } & Schema[K][M] }[keyof Schema[K]]
-      : Method extends keyof Schema[K]
-        ? Schema[K][Method] & { method: Method }
-        : never
-    : Path extends K
-      ? TypedFetchMeta<Schema[K], Path, Method, Pattern>
-      : K extends StaticParam
-        ? Path extends `${K}${infer Rest}`
-          ? Rest extends keyof Schema[K]
-            ? Pattern extends 'dynamic'
-              ? typeof DynamicParam extends keyof Schema[K]
-                ? Path extends `${string}${string}/${infer Additional}`
-                  ? TypedFetchMeta<Schema[K][typeof DynamicParam], Additional, Method, Pattern> | TypedFetchMeta<Schema[K][Rest], Rest, Method, Pattern>
-                  : never
-                : typeof WildcardParam extends keyof Schema[K]
-                  ? TypedFetchMeta<Schema[K][typeof WildcardParam], '', Method, Pattern> | TypedFetchMeta<Schema[K][Rest], Rest, Method, Pattern>
-                  : never
-              : TypedFetchMeta<Schema[K][Rest], Rest, Method, Pattern>
-            : typeof DynamicParam extends keyof Schema[K]
-              ? Path extends `${string}${string}/${infer Rest}`
-                ? TypedFetchMeta<Schema[K][typeof DynamicParam], Rest, Method, Pattern>
-                : never
-              : typeof WildcardParam extends keyof Schema[K]
-                ? TypedFetchMeta<Schema[K][typeof WildcardParam], '', Method, Pattern>
-                : never
+/**
+ * Metadata for the endpoints registered directly on a node, narrowed by `Method`
+ * when one is provided.
+ */
+type EndpointMeta<Endpoints, Method extends HTTPMethod | ''>
+  = '' extends Method
+    ? { [M in keyof Endpoints]: { method: M } & Endpoints[M] }[keyof Endpoints]
+    : Method extends keyof Endpoints
+      ? Endpoints[Method] & { method: Method }
+      : never
+
+/** `Path` itself if it contains at least one non-empty segment, otherwise `never`. */
+type NonEmptySegments<Path extends string>
+  = Path extends `/${infer Rest}`
+    ? Rest extends ''
+      ? never
+      : Path
+    : Path
+
+/** The remainder of `Path` after consuming a single non-empty segment. */
+type AfterSegment<Path extends string>
+  = Path extends `/${infer Rest}`
+    ? Rest extends `${infer Head}/${string}`
+      ? Head extends ''
+        ? never
+        : Path extends `/${Head}${infer Tail}`
+          ? Tail
           : never
-        : never
-}[keyof Schema]
+      : Rest extends ''
+        ? never
+        : ''
+    : never
+
+export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pattern extends 'exact' | 'dynamic' = 'exact'>
+  = Path extends ''
+    ? typeof Endpoint extends keyof Schema
+      ? EndpointMeta<Schema[typeof Endpoint], Method>
+      : never
+    : Path extends string
+      ? {
+          [K in keyof Schema]: K extends StaticParam
+            ? Path extends `${K}${infer Rest}`
+              ? TypedFetchMeta<Schema[K], Rest, Method, Pattern>
+              : never
+            : Pattern extends 'dynamic'
+              ? K extends typeof DynamicParam
+                ? TypedFetchMeta<Schema[K], AfterSegment<Path>, Method, Pattern>
+                : K extends typeof WildcardParam
+                  ? NonEmptySegments<Path> extends never
+                    ? never
+                    : TypedFetchMeta<Schema[K], '', Method, Pattern>
+                  : never
+              : never
+        }[keyof Schema]
+      : never
 
 export type TypedFetchResponseBody<Schema, Endpoint, Method extends HTTPMethod = 'GET'>
   = TypedFetchMeta<Schema, Endpoint, Method> extends never

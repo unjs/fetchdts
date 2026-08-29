@@ -8,8 +8,8 @@ export type { TypedFetchInput, TypedFetchMeta, TypedFetchPath, TypedFetchRequest
 
 export { serializeRoutes } from './serialize'
 
-export type { Route } from './serialize'
+export type { Route, RouteSegment } from './serialize'
 
 export type { Endpoints, RouteTree } from './tree'
 
-export type { DynamicParam, Endpoint, WildcardParam } from './tree'
+export { DynamicParam, Endpoint, WildcardParam } from './tree'

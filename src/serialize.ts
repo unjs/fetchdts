@@ -1,15 +1,33 @@
 import type { HTTPMethod } from './http'
 import type { EndpointMetadata, RouteTree } from './tree'
-import { DynamicParam, WildcardParam } from './tree'
+import { DynamicParam, Endpoint, WildcardParam } from './tree'
 
 interface OutputOptions {
   /** whether to export the generated interface */
   export?: boolean
 }
 
+/**
+ * A single segment of a route.
+ *
+ * Static segments may be written with or without a leading slash (`'/users'`, `'users'`), or as an
+ * origin (`'https://api.example.com'`). Parameters are either the exported symbols, for schemas
+ * written by hand, or the plain object form, which survives serialisation across a tool boundary.
+ */
+export type RouteSegment
+  = | string
+    | typeof DynamicParam
+    | typeof WildcardParam
+    | { type: 'static', value: string }
+    | { type: 'dynamic' }
+    | { type: 'wildcard' }
+
 export interface Route {
-  type?: 'static' | 'dynamic' | 'wildcard'
-  path: string
+  /**
+   * The route, already split into segments. `fetchdts` does not parse route patterns; convert them
+   * with whichever tool owns them (see the readme).
+   */
+  segments: RouteSegment[]
   metadata?: {
     [key in HTTPMethod]?: Partial<Record<`${keyof EndpointMetadata}Type`, string>>
   }
@@ -22,44 +40,34 @@ export function serializeRoutes(name: string, routes: Route[], options?: OutputO
 
   // build route tree
   for (const route of routes) {
-    const { segments } = parsePath(route.path)
-
     let node: RouteTree = tree
-    for (const segment of segments) {
-      node[segment] = node[segment] || {}
-      node = node[segment] as RouteTree
+    for (const segment of route.segments) {
+      const key = segmentKey(segment)
+      if (typeof key === 'symbol') {
+        imports.add(key === DynamicParam ? 'DynamicParam' : 'WildcardParam')
+      }
+      node[key] = node[key] || {}
+      node = node[key] as RouteTree
     }
 
-    if (route.type === 'dynamic') {
-      imports.add('DynamicParam')
+    imports.add('Endpoint')
 
-      node[DynamicParam] = node[DynamicParam] || {}
-      node = node[DynamicParam] as RouteTree
-    }
-    if (route.type === 'wildcard') {
-      imports.add('WildcardParam')
-
-      node[WildcardParam] = node[WildcardParam] || {}
-      node = node[WildcardParam] as RouteTree
-    }
-
-    Object.assign(node, route.metadata)
+    node[Endpoint] = Object.assign((node[Endpoint] as RouteTree) || {}, route.metadata)
   }
 
   // stringify resulting tree
   return [
-    imports.size > 0 ? `import { ${[...imports].join(', ')} } from 'fetchdts'` : undefined,
-    options?.export ? 'export ' : undefined,
-    '',
-    `interface ${name} {\n${stringifyRouteTree(tree)}}`,
+    imports.size > 0 ? `import type { ${[...imports].sort().join(', ')} } from 'fetchdts'\n` : undefined,
+    `${options?.export ? 'export ' : ''}interface ${name} {\n${stringifyRouteTree(tree)}}`,
   ].filter(s => s !== undefined).join('\n')
 }
 
-const symbols = [DynamicParam, WildcardParam] as const
+const symbols = [DynamicParam, WildcardParam, Endpoint] as const
 
 const keys: Record<symbol | string, string> = {
   [DynamicParam]: '[DynamicParam]',
   [WildcardParam]: '[WildcardParam]',
+  [Endpoint]: '[Endpoint]',
 }
 
 function stringifyRouteTree(tree: RouteTree, indent = 2): string {
@@ -85,20 +93,24 @@ function stringifyRouteTree(tree: RouteTree, indent = 2): string {
   return properties
 }
 
-function parsePath(path: string): { segments: string[] } {
-  const url = new URL(path, 'http://localhost')
-  const segments = url.pathname.split('/').map(s => s.replace(/^\/?/, '/'))
-  if (segments[0] === '/' && segments.length > 1) {
-    segments.shift()
+function segmentKey(segment: RouteSegment): string | symbol {
+  if (typeof segment === 'string') {
+    return staticKey(segment)
   }
-
-  segments[segments.length - 1] += url.search + url.hash
-
-  if (!/^https?:\/\/localhost/.test(path) && url.host === 'localhost') {
-    return { segments }
+  if (typeof segment === 'symbol') {
+    return segment
   }
+  switch (segment.type) {
+    case 'dynamic': return DynamicParam
+    case 'wildcard': return WildcardParam
+    case 'static': return staticKey(segment.value)
+  }
+}
 
-  segments.unshift(url.origin)
-
-  return { segments }
+function staticKey(value: string): string {
+  // origins are matched as a single leading segment, so they keep their scheme instead of gaining a slash
+  if (value.includes('://') || value.startsWith('/')) {
+    return value
+  }
+  return `/${value}`
 }
