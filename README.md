@@ -226,6 +226,22 @@ const contentType = response.headers.get('content-type') // string | null
 const customHeader = response.headers.get('x-custom') // Typed based on schema
 ```
 
+#### `LooseTypedHeaders<HeaderMap>` / `LooseTypedRequest<Body, HeaderMap>`
+
+Variants that type header *names* but leave every value as `string`. Use them when the header map is
+not known where the type is declared, such as when it comes from a generic parameter of your own
+type:
+
+```ts
+interface MyRequest<HeaderMap extends Record<string, string>> {
+  headers: LooseTypedHeaders<HeaderMap>
+}
+```
+
+`TypedHeaders` resolves each value with a conditional lookup into the map, which TypeScript cannot
+reduce while the map is still generic, so a plain `Headers` is neither assignable to nor from
+`TypedHeaders<HeaderMap>` in that position.
+
 ### Utilities
 
 #### `serializeRoutes(name, routes, options?)`

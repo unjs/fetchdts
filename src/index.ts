@@ -1,4 +1,4 @@
-export type { TypedHeaders, TypedRequest, TypedResponse } from './fetch'
+export type { LooseTypedHeaders, LooseTypedRequest, TypedHeaders, TypedRequest, TypedResponse } from './fetch'
 
 export type { HTTPMethod, MimeType, RequestHeaderMap, RequestHeaderName, RequestHeaders, ResponseHeaderMap, ResponseHeaderName, ResponseHeaders } from './http'
 

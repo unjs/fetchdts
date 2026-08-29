@@ -209,3 +209,14 @@ describe('TypedURLSearchParams', () => {
     expectTypeOf(params.get('unknown')).toEqualTypeOf<string | null>()
   })
 })
+
+describe('optional query map keys', () => {
+  it('should not surface `undefined` for optional keys', () => {
+    type OptionalParams = TypedURLSearchParams<{ a?: string }>
+
+    const params = {} as OptionalParams
+
+    expectTypeOf(params.get('a')).toEqualTypeOf<string | null>()
+    expectTypeOf<OptionalParams>().toExtend<URLSearchParams>()
+  })
+})
