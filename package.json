@@ -47,6 +47,7 @@
     "installed-check": "11.0.0",
     "knip": "6.32.2",
     "lint-staged": "17.3.0",
+    "pkg-pr-new": "0.0.88",
     "simple-git-hooks": "2.13.1",
     "tsdown": "0.22.14",
     "typescript": "6.0.3",
