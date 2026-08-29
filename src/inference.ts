@@ -153,10 +153,17 @@ export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pa
         : StaticMatch<Schema, Path, Method, Pattern>
       : never
 
+/**
+ * The response body for a path, or `unknown` where the endpoint exists but declares no response, so
+ * that a route registered without a return type stays callable. A path that matches nothing, or a
+ * method the endpoint does not register, is still `never`.
+ */
 export type TypedFetchResponseBody<Schema, Endpoint, Method extends HTTPMethod = 'GET'>
   = 'response' extends keyof TypedFetchResolvedMeta<Schema, Endpoint, Method>
     ? TypedFetchResolvedMeta<Schema, Endpoint, Method>['response']
-    : never
+    : [TypedFetchResolvedMeta<Schema, Endpoint, Method>] extends [never]
+        ? never
+        : unknown
 
 export type TypedFetchResponseHeaders<Schema, Endpoint, Method extends HTTPMethod = 'GET'>
   = 'responseHeaders' extends keyof TypedFetchResolvedMeta<Schema, Endpoint, Method>

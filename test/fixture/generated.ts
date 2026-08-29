@@ -66,6 +66,10 @@ export interface GeneratedRoutes {
         }
       }
     }
+    "/proxy": {
+      [Endpoint]: Record<HTTPMethod, {
+      }>
+    }
     "/files": {
       [WildcardParam]: {
         [Endpoint]: {

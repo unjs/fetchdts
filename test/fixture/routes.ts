@@ -59,6 +59,13 @@ export const routes: Route[] = [
     },
   },
   {
+    // a route whose return type could not be resolved: callable, but nothing is known about it
+    segments: ['/api', '/proxy'],
+    metadata: {
+      ALL: {},
+    },
+  },
+  {
     segments: ['/api', '/files', WildcardParam],
     metadata: {
       GET: { responseType: 'Blob' },

@@ -62,6 +62,18 @@ describe('nested route resolution', () => {
     expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files//a'>>().toEqualTypeOf<9>()
   })
 
+  it('returns unknown for a route registered without a return type', () => {
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/proxy'>>().toBeUnknown()
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/proxy', 'DELETE'>>().toBeUnknown()
+    expectTypeOf<'/api/proxy'>().toMatchTypeOf<TypedFetchInput<GeneratedRoutes>>()
+
+    // a declared response is unaffected, and neither an unregistered method nor an unmatched path
+    // becomes callable
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/health'>>().toEqualTypeOf<{ status: 'ok' }>()
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/health', 'PUT'>>().toBeNever()
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/nope'>>().toBeNever()
+  })
+
   it('returns never for unmatched paths', () => {
     expectTypeOf<TypedFetchResponseBody<StaticDepth3, '/a/b'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<StaticDepth3, '/a/b/d'>>().toBeNever()

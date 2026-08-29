@@ -417,6 +417,33 @@ serializeRoutes('APISchema', [
 ])
 ```
 
+### Registering a Route Without a Return Type
+
+A route whose response type isn't known, because a handler couldn't be resolved or is a proxy, is
+still a route, and should stay callable rather than looking like a typo. Register it for every method
+with nothing else declared:
+
+```ts
+serializeRoutes('APISchema', [
+  { segments: ['/api', '/proxy'], metadata: { ALL: {} } },
+])
+
+// [Endpoint]: Record<HTTPMethod, {}>
+```
+
+The path is then a valid input, takes any method, and its response is `unknown`. A path that matches
+nothing, or a method an endpoint doesn't register, is still `never`, so the two cases stay
+distinguishable:
+
+```ts
+type A = TypedFetchResponseBody<APISchema, '/api/proxy'> // unknown
+type B = TypedFetchResponseBody<APISchema, '/api/typo'> // never
+```
+
+Omitting `metadata` entirely is not the same thing: it emits no endpoint at all, so the path is not
+offered. That is deliberate, so that a generator which skips handlers it cannot type doesn't widen
+its surface by accident.
+
 ### Requests Built From Runtime Values
 
 `` $fetch(`/api/posts/${id}`) `` has the type `` `/api/posts/${string}` ``, so it matches the dynamic
