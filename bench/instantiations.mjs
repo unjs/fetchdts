@@ -1,11 +1,14 @@
 /* eslint-disable no-console */
 // Measures tsc type instantiations for a generated N-route schema.
 // Usage: node bench/instantiations.mjs [--routes 150] [--calls 60] [--depth 3] [--src ./src]
-//                                      [--siblings 0] [--template] [--eager-init]
+//                                      [--siblings 0] [--template] [--ambiguous] [--eager-init]
 //
 // --siblings adds N static routes alongside each dynamic one, and --template requests the dynamic
 // routes with a template literal (`/a/b/${string}`) rather than a concrete path, which together
 // measure what a template-literal request costs when its node has static siblings.
+//
+// --ambiguous emits an `ambiguousResponse` on each dynamic endpoint, as a caller that precomputes
+// the union of its static siblings would, which is what a template-literal request then resolves to.
 //
 // --eager-init constrains a generic to the init type instead of using it in parameter position,
 // which forces the init to be computed for the whole path union before any call site is checked.
@@ -39,6 +42,7 @@ const calls = count('calls', 60, 0)
 const depth = count('depth', 3, 1)
 const siblings = count('siblings', 0, 0)
 const template = args.includes('--template')
+const ambiguous = args.includes('--ambiguous')
 const eagerInit = args.includes('--eager-init')
 const root = fileURLToPath(new URL('..', import.meta.url))
 const src = path.resolve(root, arg('src', 'src'))
@@ -64,7 +68,10 @@ for (let i = 0; i < routes; i++) {
     node['[DynamicParam]'] ||= {}
     node = node['[DynamicParam]']
   }
-  node['[Endpoint]'] = `{ GET: { response: { id: number, route: '${i}' } }, POST: { body: { id: number }, response: { ok: true } } }`
+  const overlapping = dynamic && ambiguous
+    ? `, ambiguousResponse: { id: number, route: '${i}' }${Array.from({ length: siblings }, (_, sibling) => ` | { sibling: ${sibling} }`).join('')}`
+    : ''
+  node['[Endpoint]'] = `{ GET: { response: { id: number, route: '${i}' }${overlapping} }, POST: { body: { id: number }, response: { ok: true } } }`
 
   if (dynamic) {
     for (let sibling = 0; sibling < siblings; sibling++) {
@@ -148,7 +155,7 @@ try {
   }
 
   const wanted = ['Instantiations', 'Types', 'Memory used', 'Total time', 'Check time']
-  console.log(`routes=${routes} calls=${calls} depth=${depth}${siblings > 0 ? ` siblings=${siblings}` : ''}${template ? ' template' : ''}${eagerInit ? ' eager-init' : ''} src=${path.relative(root, src) || 'src'}`)
+  console.log(`routes=${routes} calls=${calls} depth=${depth}${siblings > 0 ? ` siblings=${siblings}` : ''}${template ? ' template' : ''}${ambiguous ? ' ambiguous' : ''}${eagerInit ? ' eager-init' : ''} src=${path.relative(root, src) || 'src'}`)
   for (const line of output.split('\n')) {
     if (wanted.some(key => line.startsWith(key))) {
       console.log(`  ${line.trim()}`)
