@@ -1,11 +1,16 @@
 /* eslint-disable no-console */
 // Measures tsc type instantiations for a generated N-route schema.
 // Usage: node bench/instantiations.mjs [--routes 150] [--calls 60] [--depth 3] [--src ./src]
-//                                      [--siblings 0] [--template]
+//                                      [--siblings 0] [--template] [--eager-init]
 //
 // --siblings adds N static routes alongside each dynamic one, and --template requests the dynamic
 // routes with a template literal (`/a/b/${string}`) rather than a concrete path, which together
 // measure what a template-literal request costs when its node has static siblings.
+//
+// --eager-init constrains a generic to the init type instead of using it in parameter position,
+// which forces the init to be computed for the whole path union before any call site is checked.
+// It is the shape to avoid in a client, and is kept measurable because the cost is easy to
+// reintroduce by accident and dwarfs everything else.
 
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -34,6 +39,7 @@ const calls = count('calls', 60, 0)
 const depth = count('depth', 3, 1)
 const siblings = count('siblings', 0, 0)
 const template = args.includes('--template')
+const eagerInit = args.includes('--eager-init')
 const root = fileURLToPath(new URL('..', import.meta.url))
 const src = path.resolve(root, arg('src', 'src'))
 
@@ -90,10 +96,13 @@ mkdirSync(dir, { recursive: true })
 const specifier = name => JSON.stringify(path.join(src, name).replaceAll(path.sep, '/'))
 
 let source = `import type { DynamicParam, Endpoint } from ${specifier('tree')}\n`
+source += `import type { HTTPMethod } from ${specifier('http/index')}\n`
 source += `import type { TypedFetchInput, TypedFetchRequestInit, TypedFetchResponseBody } from ${specifier('inference')}\n`
 source += `import type { Trimmed } from ${specifier('utils')}\n\n`
 source += `interface Schema {\n${schema}}\n\n`
-source += `declare function $fetch<T extends TypedFetchInput<Schema>, Init extends TypedFetchRequestInit<Schema, T>>(input: T, init?: Init): TypedFetchResponseBody<Schema, Trimmed<T>, 'GET'>\n\n`
+source += eagerInit
+  ? `declare function $fetch<T extends TypedFetchInput<Schema>, Init extends TypedFetchRequestInit<Schema, T>>(input: T, init?: Init): TypedFetchResponseBody<Schema, Trimmed<T>, 'GET'>\n\n`
+  : `declare function $fetch<T extends TypedFetchInput<Schema>, M extends HTTPMethod = 'GET'>(input: T, init?: TypedFetchRequestInit<Schema, T> & { method?: M }): TypedFetchResponseBody<Schema, Trimmed<T>, M>\n\n`
 source += 'declare const param: string\n\n'
 for (let i = 0; i < calls; i++) {
   const { prefix, dynamic } = paths[i % paths.length]
@@ -139,7 +148,7 @@ try {
   }
 
   const wanted = ['Instantiations', 'Types', 'Memory used', 'Total time', 'Check time']
-  console.log(`routes=${routes} calls=${calls} depth=${depth} src=${path.relative(root, src) || 'src'}`)
+  console.log(`routes=${routes} calls=${calls} depth=${depth}${siblings > 0 ? ` siblings=${siblings}` : ''}${template ? ' template' : ''}${eagerInit ? ' eager-init' : ''} src=${path.relative(root, src) || 'src'}`)
   for (const line of output.split('\n')) {
     if (wanted.some(key => line.startsWith(key))) {
       console.log(`  ${line.trim()}`)

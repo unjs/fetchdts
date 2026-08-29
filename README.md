@@ -470,6 +470,39 @@ else {
 
 ## Best Practices
 
+### Typing a Fetch Function
+
+Keep the init type in *parameter* position, and make the method a type parameter if the response
+needs to narrow by it:
+
+```ts
+declare function $fetch<T extends TypedFetchInput<Schema>, M extends HTTPMethod = 'GET'>(
+  input: T,
+  init?: TypedFetchRequestInit<Schema, T> & { method?: M },
+): TypedFetchResponseBody<Schema, Trimmed<T>, M>
+```
+
+Constraining a type parameter to the init type instead looks equivalent, but is not:
+
+```ts
+// avoid: `Init` is constrained by every path in the schema
+declare function $fetch<T extends TypedFetchInput<Schema>, Init extends TypedFetchRequestInit<Schema, T>>(
+  input: T,
+  init?: Init,
+): TypedFetchResponseBody<Schema, Trimmed<T>, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>
+```
+
+The constraint is instantiated with `T` as the whole path union, so the request init is computed for
+every route in the schema before a single call site is checked. On a schema of any size this
+dominates everything else: the cost stops tracking the number of call sites and starts tracking the
+number of routes, several times over. `pnpm bench --eager-init` measures the difference.
+
+Two smaller notes on the same signature. An endpoint declares the headers it *requires*, so add
+`{ headers?: Record<string, string> }` to the init if callers should be free to send others.
+And if some paths only accept a method other than `GET`, a second overload constrained to
+`TypedFetchInput<Schema, 'GET'>` with an optional init keeps those paths from being called without
+one.
+
 ### Schema Organization
 
 For large APIs, consider organizing your schemas into modules:
