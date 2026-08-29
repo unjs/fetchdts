@@ -417,6 +417,45 @@ serializeRoutes('APISchema', [
 ])
 ```
 
+### Requests Built From Runtime Values
+
+`` $fetch(`/api/posts/${id}`) `` has the type `` `/api/posts/${string}` ``, so it matches the dynamic
+parameter, but at runtime `id` could be `'static'` and hit a static sibling instead. By default the
+dynamic parameter's response is used, which is exact for a literal path and optimistic for this one.
+
+Where that matters, an endpoint can declare the response to use when the segment reaching it was not
+a literal:
+
+```ts
+interface APISchema {
+  '/api/posts': {
+    '/static': { [Endpoint]: { GET: { response: Static } } }
+    [DynamicParam]: {
+      [Endpoint]: {
+        GET: {
+          response: Post
+          ambiguousResponse: Post | Static
+        }
+      }
+    }
+  }
+}
+
+type A = TypedFetchResponseBody<APISchema, `/api/posts/${string}`> // Post | Static
+type B = TypedFetchResponseBody<APISchema, '/api/posts/123'> // Post
+type C = TypedFetchResponseBody<APISchema, '/api/posts/static'> // Static
+```
+
+The union is not computed for you, deliberately: which siblings a request could reach is a property
+of the route set, and whoever generates the schema knows it, so computing it once at generation time
+costs a fraction of deriving it at every call site. `serializeRoutes` emits an
+`ambiguousResponseType` like any other metadata field. An endpoint that declares no
+`ambiguousResponse` behaves exactly as before, so this is opt-in per endpoint.
+
+The alternative is only used where a *parameter* consumed a non-literal segment. A wildcard is
+unaffected, since it matches the rest of the path either way, and it applies to endpoints below the
+parameter too, so `` `/api/users/${string}/posts` `` can account for a `/api/users/me/posts` sibling.
+
 ### Cross-Domain API Support
 
 ```ts

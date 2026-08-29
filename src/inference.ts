@@ -51,8 +51,19 @@ type RequestInitFor<Meta> = {
 
 export type TypedFetchRequestInit<Schema, T> = RequestInitFor<TypedFetchResolvedMeta<Schema, T>>
 
+/**
+ * How a path is matched against a schema.
+ *
+ * - `exact`: static segments only.
+ * - `dynamic`: parameters are considered where no static segment matches.
+ * - `ambiguous`: as `dynamic`, but a parameter has consumed a segment that is not a literal, so the
+ *   request could also have matched a static sibling and {@link EndpointMetadata.ambiguousResponse}
+ *   is preferred where an endpoint declares one.
+ */
+export type MatchPattern = 'exact' | 'dynamic' | 'ambiguous'
+
 /** Endpoints reached by matching `Path` against the static keys of `Schema`. */
-type StaticMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends 'exact' | 'dynamic'> = {
+type StaticMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern> = {
   [K in keyof Schema]: K extends StaticParam
     ? Path extends `${K}${infer Rest}`
       ? TypedFetchMeta<Schema[K], Rest, Method, Pattern>
@@ -61,9 +72,9 @@ type StaticMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pa
 }[keyof Schema]
 
 /** Endpoints reached by consuming a segment of `Path` with a dynamic or wildcard parameter. */
-type ParamMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends 'exact' | 'dynamic'> = {
+type ParamMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern> = {
   [K in keyof Schema]: K extends typeof DynamicParam
-    ? TypedFetchMeta<Schema[K], AfterSegment<Path>, Method, Pattern>
+    ? TypedFetchMeta<Schema[K], AfterSegment<Path>, Method, LiteralSegment<Path> extends false ? 'ambiguous' : Pattern>
     : K extends typeof WildcardParam
       ? [NonEmptySegments<Path>] extends [never]
           ? never
@@ -75,12 +86,32 @@ type ParamMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pat
  * Metadata for the endpoints registered directly on a node, narrowed by `Method`
  * when one is provided.
  */
-type EndpointMeta<Endpoints, Method extends HTTPMethod | ''>
+type EndpointMeta<Endpoints, Method extends HTTPMethod | '', Pattern extends MatchPattern>
   = '' extends Method
-    ? { [M in keyof Endpoints]: { method: M } & Endpoints[M] }[keyof Endpoints]
+    ? { [M in keyof Endpoints]: { method: M } & Ambiguate<Endpoints[M], Pattern> }[keyof Endpoints]
     : Method extends keyof Endpoints
-      ? Endpoints[Method] & { method: Method }
+      ? Ambiguate<Endpoints[Method], Pattern> & { method: Method }
       : never
+
+/**
+ * Replaces `response` with `ambiguousResponse` where the walk reached the endpoint through a
+ * parameter that consumed a segment known only at runtime, and the endpoint declares one. Endpoints
+ * without an `ambiguousResponse` are returned untouched, so this is inert until one is emitted.
+ */
+type Ambiguate<Metadata, Pattern extends MatchPattern>
+  = Pattern extends 'ambiguous'
+    ? 'ambiguousResponse' extends keyof Metadata
+      ? { [K in Exclude<keyof Metadata, 'ambiguousResponse'>]: K extends 'response' ? Metadata['ambiguousResponse'] : Metadata[K] }
+      : Metadata
+    : Metadata
+
+/** Whether the segment `Path` is about to consume is a literal rather than `string`-like. */
+type LiteralSegment<Path extends string>
+  = Path extends `/${infer Rest}`
+    ? Rest extends `${infer Head}/${string}`
+      ? string extends Head ? false : true
+      : string extends Rest ? false : true
+    : true
 
 /** `Path` itself if it contains at least one non-empty segment, otherwise `never`. */
 type NonEmptySegments<Path extends string>
@@ -104,13 +135,13 @@ type AfterSegment<Path extends string>
         : ''
     : never
 
-export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pattern extends 'exact' | 'dynamic' = 'exact'>
+export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pattern extends MatchPattern = 'exact'>
   = Path extends ''
     ? typeof Endpoint extends keyof Schema
-      ? EndpointMeta<Schema[typeof Endpoint], Method>
+      ? EndpointMeta<Schema[typeof Endpoint], Method, Pattern>
       : never
     : Path extends string
-      ? Pattern extends 'dynamic'
+      ? Pattern extends 'dynamic' | 'ambiguous'
         ? [StaticMatch<Schema, Path, Method, Pattern>] extends [never]
             ? ParamMatch<Schema, Path, Method, Pattern>
             : StaticMatch<Schema, Path, Method, Pattern>

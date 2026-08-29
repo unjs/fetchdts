@@ -14,6 +14,12 @@ export interface EndpointMetadata {
   headers: Record<string, unknown>
   body: never | Record<string, unknown>
   response: unknown
+  /**
+   * The response where the request could have matched a static sibling of the parameter it was
+   * resolved through, because the segment was known only at runtime. Typically a union of this
+   * endpoint's response and those of the siblings; see the readme.
+   */
+  ambiguousResponse: unknown
   responseHeaders: Record<string, unknown>
 }
 

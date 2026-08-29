@@ -29,9 +29,19 @@ export const routes: Route[] = [
     },
   },
   {
+    segments: ['/api', '/comments', '/latest'],
+    metadata: {
+      GET: { responseType: '{ latest: true }' },
+    },
+  },
+  {
+    // a request built from a runtime value could match `/latest`, so the caller precomputes the union
     segments: ['/api', '/comments', DynamicParam],
     metadata: {
-      GET: { responseType: '{ body: string }' },
+      GET: {
+        responseType: '{ body: string }',
+        ambiguousResponseType: '{ body: string } | { latest: true }',
+      },
     },
   },
   {

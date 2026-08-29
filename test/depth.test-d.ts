@@ -164,3 +164,60 @@ describe('method-agnostic handlers', () => {
     expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/search', 'PATCH'>>().toEqualTypeOf<{ results: string[] }>()
   })
 })
+
+interface Ambiguous {
+  '/api/posts': {
+    '/static': { [Endpoint]: { GET: { response: 'static' } } }
+    '/other': { [Endpoint]: { GET: { response: 'other' } } }
+    [DynamicParam]: { [Endpoint]: { GET: { response: 'param', ambiguousResponse: 'param' | 'static' | 'other' } } }
+  }
+}
+
+interface AmbiguousAfterParam {
+  '/api/users': {
+    '/me': { '/posts': { [Endpoint]: { GET: { response: 'mine' } } } }
+    [DynamicParam]: { '/posts': { [Endpoint]: { GET: { response: 'posts', ambiguousResponse: 'posts' | 'mine' } } } }
+  }
+}
+
+interface AmbiguousWildcard {
+  '/api/files': {
+    [WildcardParam]: { [Endpoint]: { GET: { response: 'wild', ambiguousResponse: 'unused' } } }
+  }
+}
+
+describe('requests whose segments are only known at runtime', () => {
+  it('resolves the declared alternative for a non-literal segment', () => {
+    expectTypeOf<TypedFetchResponseBody<Ambiguous, `/api/posts/${string}`>>().toEqualTypeOf<'param' | 'static' | 'other'>()
+    expectTypeOf<TypedFetchResponseBody<AmbiguousAfterParam, `/api/users/${string}/posts`>>().toEqualTypeOf<'posts' | 'mine'>()
+  })
+
+  it('resolves a literal segment exactly', () => {
+    expectTypeOf<TypedFetchResponseBody<Ambiguous, '/api/posts/123'>>().toEqualTypeOf<'param'>()
+    expectTypeOf<TypedFetchResponseBody<Ambiguous, '/api/posts/static'>>().toEqualTypeOf<'static'>()
+    expectTypeOf<TypedFetchResponseBody<AmbiguousAfterParam, '/api/users/123/posts'>>().toEqualTypeOf<'posts'>()
+    expectTypeOf<TypedFetchResponseBody<AmbiguousAfterParam, '/api/users/me/posts'>>().toEqualTypeOf<'mine'>()
+  })
+
+  it('leaves a schema without an alternative untouched', () => {
+    expectTypeOf<TypedFetchResponseBody<StaticAfterDynamic, `/api/users/${string}/posts`>>().toEqualTypeOf<7>()
+    expectTypeOf<TypedFetchResponseBody<TwoDynamic, `/api/users/${string}/posts/${string}`>>().toEqualTypeOf<8>()
+  })
+
+  it('does not apply the alternative to a wildcard', () => {
+    expectTypeOf<TypedFetchResponseBody<AmbiguousWildcard, '/api/files/a/b'>>().toEqualTypeOf<'wild'>()
+    expectTypeOf<TypedFetchResponseBody<AmbiguousWildcard, `/api/files/${string}`>>().toEqualTypeOf<'wild'>()
+  })
+
+  it('keeps the alternative out of the metadata and the request init', () => {
+    expectTypeOf<'ambiguousResponse' extends keyof TypedFetchMeta<Ambiguous, `/api/posts/${string}`, 'GET', 'dynamic'> ? true : false>().toEqualTypeOf<false>()
+    expectTypeOf<TypedFetchMeta<Ambiguous, `/api/posts/${string}`, 'GET', 'dynamic'>['method']>().toEqualTypeOf<'GET'>()
+    expectTypeOf<{ method: 'GET' }>().toMatchTypeOf<TypedFetchRequestInit<Ambiguous, `/api/posts/${string}`>>()
+  })
+
+  it('resolves the serialized form', () => {
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/comments/1'>>().toEqualTypeOf<{ body: string }>()
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, '/api/comments/latest'>>().toEqualTypeOf<{ latest: true }>()
+    expectTypeOf<TypedFetchResponseBody<GeneratedRoutes, `/api/comments/${string}`>>().toEqualTypeOf<{ body: string } | { latest: true }>()
+  })
+})

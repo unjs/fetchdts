@@ -4,7 +4,7 @@ export type { HTTPMethod, MimeType, RequestHeaderMap, RequestHeaderName, Request
 
 export type { TypedURLSearchParams } from './http/url'
 
-export type { TypedFetchInput, TypedFetchMeta, TypedFetchPath, TypedFetchRequestInit, TypedFetchResolvedMeta, TypedFetchResponseBody as TypedFetchResponse, TypedFetchResponseBody } from './inference'
+export type { MatchPattern, TypedFetchInput, TypedFetchMeta, TypedFetchPath, TypedFetchRequestInit, TypedFetchResolvedMeta, TypedFetchResponseBody as TypedFetchResponse, TypedFetchResponseBody } from './inference'
 
 export { serializeRoutes } from './serialize'
 

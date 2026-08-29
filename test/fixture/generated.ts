@@ -35,10 +35,18 @@ export interface GeneratedRoutes {
       }
     }
     "/comments": {
+      "/latest": {
+        [Endpoint]: {
+          "GET": {
+            "response": { latest: true }
+          }
+        }
+      }
       [DynamicParam]: {
         [Endpoint]: {
           "GET": {
             "response": { body: string }
+            "ambiguousResponse": { body: string } | { latest: true }
           }
         }
       }
