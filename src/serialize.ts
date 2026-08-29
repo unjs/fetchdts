@@ -52,7 +52,18 @@ export function serializeRoutes(name: string, routes: Route[], options?: OutputO
 
     imports.add('Endpoint')
 
-    node[Endpoint] = Object.assign((node[Endpoint] as RouteTree) || {}, route.metadata)
+    // distinct patterns can share a node, such as two parameters distinguished only by a constraint
+    // the schema cannot express, so types are collected per field rather than overwritten
+    const endpoints = (node[Endpoint] = (node[Endpoint] as RouteTree) || {}) as Record<string, Record<string, string[]>>
+    for (const [method, metadata] of Object.entries(route.metadata || {})) {
+      const existing = endpoints[method] = endpoints[method] || {}
+      for (const [field, type] of Object.entries(metadata as Record<string, string>)) {
+        const types = existing[field] = existing[field] || []
+        if (!types.includes(type)) {
+          types.push(type)
+        }
+      }
+    }
   }
 
   // stringify resulting tree
@@ -81,7 +92,12 @@ function stringifyRouteTree(tree: RouteTree, indent = 2): string {
       continue
     }
     const key = keys[_key] || JSON.stringify((_key as string).replace(/Type$/, ''))
-    if (typeof value === 'string') {
+    if (Array.isArray(value)) {
+      // each type is parenthesised, as arbitrary type source may not be safe to union unbracketed
+      const type = value.length > 1 ? value.map(t => `(${t})`).join(' | ') : value[0]
+      properties += `${' '.repeat(indent)}${key}: ${type}\n`
+    }
+    else if (typeof value === 'string') {
       properties += `${' '.repeat(indent)}${key}: ${value}\n`
     }
     else {

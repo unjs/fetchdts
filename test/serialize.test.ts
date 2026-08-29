@@ -117,4 +117,31 @@ describe('serialize', () => {
       }"
     `)
   })
+
+  it('should union the types of routes that resolve to the same endpoint', () => {
+    const tree = serializeRoutes('InternalRoutes', [
+      { segments: ['/users', DynamicParam], metadata: { GET: { responseType: 'User' } } },
+      { segments: ['/users', DynamicParam], metadata: { GET: { responseType: '(Post | Draft)[]' } } },
+      { segments: ['/users', DynamicParam], metadata: { GET: { responseType: 'User' }, POST: { responseType: 'Created' } } },
+    ])
+
+    expect(tree).toMatchInlineSnapshot(`
+      "import type { DynamicParam, Endpoint } from 'fetchdts'
+
+      interface InternalRoutes {
+        "/users": {
+          [DynamicParam]: {
+            [Endpoint]: {
+              "GET": {
+                "response": (User) | ((Post | Draft)[])
+              }
+              "POST": {
+                "response": Created
+              }
+            }
+          }
+        }
+      }"
+    `)
+  })
 })

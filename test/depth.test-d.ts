@@ -1,5 +1,5 @@
 import type { HTTPMethod } from '../src/http'
-import type { TypedFetchInput, TypedFetchMeta, TypedFetchRequestInit, TypedFetchResponseBody } from '../src/inference'
+import type { TypedFetchInput, TypedFetchMeta, TypedFetchRequestInit, TypedFetchResolvedMeta, TypedFetchResponseBody } from '../src/inference'
 import type { DynamicParam, Endpoint, WildcardParam } from '../src/tree'
 import type { GeneratedRoutes } from './fixture/generated'
 import { describe, expectTypeOf, it } from 'vitest'
@@ -72,6 +72,18 @@ describe('nested route resolution', () => {
   it('types request init for nested paths', () => {
     expectTypeOf<TypedFetchMeta<StaticDepth3, '/a/b/c'>['method']>().toEqualTypeOf<'GET'>()
     expectTypeOf<{ method: 'GET' }>().toMatchTypeOf<TypedFetchRequestInit<StaticDepth3, '/a/b/c'>>()
+  })
+
+  it('types request init for paths reached through a parameter', () => {
+    expectTypeOf<TypedFetchResolvedMeta<StaticAfterDynamic, '/api/users/123/posts'>['method']>().toEqualTypeOf<'GET'>()
+    expectTypeOf<TypedFetchResolvedMeta<DeepWildcard, '/api/files/a/b'>['method']>().toEqualTypeOf<'GET'>()
+
+    // a parameterised path is only reached by the dynamic pass, so an exact-only lookup would leave
+    // every property of the init `never` and make the options object impossible to satisfy
+    expectTypeOf<TypedFetchRequestInit<StaticAfterDynamic, '/api/users/123/posts'>>().not.toBeNever()
+    expectTypeOf<{ method: 'GET' }>().toMatchTypeOf<TypedFetchRequestInit<StaticAfterDynamic, '/api/users/123/posts'>>()
+    expectTypeOf<{ method: 'GET' }>().toMatchTypeOf<TypedFetchRequestInit<DeepWildcard, '/api/files/a/b'>>()
+    expectTypeOf<TypedFetchRequestInit<GeneratedRoutes, '/api/users/123'>['body']>().not.toBeNever()
   })
 })
 
