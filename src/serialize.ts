@@ -39,9 +39,74 @@ export interface Route {
   [key: string]: unknown
 }
 
+/**
+ * Route keys, method names and metadata fields all come from user input, so every lookup table
+ * built from them has a null prototype; otherwise a route segment or method named `toString` or
+ * `constructor` would resolve to an inherited value.
+ */
+function dict<T>(): Record<string, T> {
+  return Object.create(null) as Record<string, T>
+}
+
+const identifier = /^[$a-z_][\w$]*$/i
+
+/** reserved words, and the words reserved in strict mode, as the emitted schema is a module */
+const reserved = new Set([
+  'await',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'enum',
+  'export',
+  'extends',
+  'false',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'instanceof',
+  'interface',
+  'let',
+  'new',
+  'null',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'return',
+  'static',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+])
+
 export function serializeRoutes(name: string, routes: Route[], options?: OutputOptions): string {
+  if (!identifier.test(name) || reserved.has(name)) {
+    throw new TypeError(`Cannot serialise routes as \`${name}\`, which is not a valid interface name.`)
+  }
+
   const imports = new Set<string>()
-  const tree: RouteTree = {}
+  const tree: RouteTree = dict()
 
   // build route tree
   for (const route of routes) {
@@ -51,14 +116,16 @@ export function serializeRoutes(name: string, routes: Route[], options?: OutputO
       if (typeof key === 'symbol') {
         imports.add(key === DynamicParam ? 'DynamicParam' : 'WildcardParam')
       }
-      node[key] = node[key] || {}
+      if (!Object.hasOwn(node, key)) {
+        node[key] = dict()
+      }
       node = node[key] as RouteTree
     }
 
     // an endpoint with no methods would be offered as a valid path but resolve to `never`, so a
     // route with no method metadata contributes its segments and nothing else
     const methods = Object.entries(route.metadata || {})
-      .filter((entry): entry is [string, Record<string, string>] => entry[1] !== undefined)
+      .filter((entry): entry is [string, Record<string, string>] => typeof entry[1] === 'object' && entry[1] !== null)
     if (methods.length === 0) {
       continue
     }
@@ -70,14 +137,14 @@ export function serializeRoutes(name: string, routes: Route[], options?: OutputO
 
     // distinct patterns can share a node, such as two parameters distinguished only by a constraint
     // the schema cannot express, so types are collected per field rather than overwritten
-    const endpoints = (node[Endpoint] = (node[Endpoint] as RouteTree) || {}) as Record<string, Record<string, string[]>>
+    const endpoints = (node[Endpoint] = (node[Endpoint] as RouteTree) || dict()) as Record<string, Record<string, string[]>>
     for (const [method, metadata] of methods) {
-      const existing = endpoints[method] = endpoints[method] || {}
+      const existing = endpoints[method] = Object.hasOwn(endpoints, method) ? endpoints[method]! : dict<string[]>()
       for (const [field, type] of Object.entries(metadata)) {
-        if (type === undefined) {
+        if (typeof type !== 'string') {
           continue
         }
-        const types = existing[field] = existing[field] || []
+        const types = existing[field] = Object.hasOwn(existing, field) ? existing[field]! : []
         if (!types.includes(type)) {
           types.push(type)
         }
@@ -94,11 +161,11 @@ export function serializeRoutes(name: string, routes: Route[], options?: OutputO
 
 const symbols = [DynamicParam, WildcardParam, Endpoint] as const
 
-const keys: Record<symbol | string, string> = {
+const keys: Record<symbol | string, string> = Object.assign(dict<string>(), {
   [DynamicParam]: '[DynamicParam]',
   [WildcardParam]: '[WildcardParam]',
   [Endpoint]: '[Endpoint]',
-}
+})
 
 function stringifyRouteTree(tree: RouteTree, indent = 2, metadata = false): string {
   let properties = ''
@@ -164,14 +231,18 @@ function segmentKey(segment: RouteSegment): string | symbol {
   if (typeof segment === 'symbol') {
     return segment
   }
-  switch (segment.type) {
+  switch (segment?.type) {
     case 'dynamic': return DynamicParam
     case 'wildcard': return WildcardParam
     case 'static': return staticKey(segment.value)
+    default: throw new TypeError(`Unknown route segment: ${JSON.stringify(segment)}.`)
   }
 }
 
 function staticKey(value: string): string {
+  if (typeof value !== 'string') {
+    throw new TypeError(`Static route segments must be strings, received ${JSON.stringify(value)}.`)
+  }
   // origins are matched as a single leading segment, so they keep their scheme instead of gaining a slash
   if (value.includes('://') || value.startsWith('/')) {
     return value
