@@ -4,12 +4,12 @@ export type { HTTPMethod, MimeType, RequestHeaderMap, RequestHeaderName, Request
 
 export type { TypedURLSearchParams } from './http/url'
 
-export type { TypedFetchInput, TypedFetchMeta, TypedFetchPath, TypedFetchRequestInit, TypedFetchResponseBody as TypedFetchResponse, TypedFetchResponseBody } from './inference'
+export type { MatchPattern, TypedFetchInput, TypedFetchMeta, TypedFetchPath, TypedFetchRequestInit, TypedFetchResolvedMeta, TypedFetchResponseBody as TypedFetchResponse, TypedFetchResponseBody } from './inference'
 
 export { serializeRoutes } from './serialize'
 
-export type { Route } from './serialize'
+export type { Route, RouteSegment } from './serialize'
 
 export type { Endpoints, RouteTree } from './tree'
 
-export type { DynamicParam, Endpoint, WildcardParam } from './tree'
+export { DynamicParam, Endpoint, WildcardParam } from './tree'

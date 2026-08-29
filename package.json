@@ -27,6 +27,7 @@
     }
   },
   "scripts": {
+    "bench": "node bench/instantiations.mjs",
     "build": "tsdown",
     "dev": "vitest dev",
     "lint": "eslint .",

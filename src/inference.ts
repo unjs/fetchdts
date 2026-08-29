@@ -27,66 +27,145 @@ export type TypedFetchPath<Schema, Base extends string = '', Method = ''> = {
           : never
 }[keyof Schema]
 
+/**
+ * Metadata for the endpoint `Path` resolves to, including endpoints reached through a dynamic or
+ * wildcard parameter. This is the lookup a router performs; {@link TypedFetchMeta} on its own
+ * considers static segments only.
+ */
+export type TypedFetchResolvedMeta<Schema, Path, Method extends HTTPMethod | '' = ''>
+  = TypedFetchMeta<Schema, Path, Method, 'dynamic'>
+
 // TODO: optimise me
-export type TypedFetchRequestInit<Schema, T> = {
-  [K in keyof Omit<RequestInit, 'method' | 'body'>]?: K extends keyof TypedFetchMeta<Schema, T>
-    ? TypedFetchMeta<Schema, T>[K]
+type RequestInitFor<Meta> = {
+  [K in keyof Omit<RequestInit, 'method' | 'body'>]?: K extends keyof Meta
+    ? Meta[K]
     : RequestInit[K]
 } & (
-  'method' extends keyof TypedFetchMeta<Schema, T>
+  'method' extends keyof Meta
     // if GET is a valid method we don't require method to be specified
-    ? 'GET' extends TypedFetchMeta<Schema, T>['method']
-      ? { method?: TypedFetchMeta<Schema, T>['method'] }
-      : { method: TypedFetchMeta<Schema, T>['method'] }
+    ? 'GET' extends Meta['method']
+      ? { method?: Meta['method'] }
+      : { method: Meta['method'] }
     : { method?: RequestInit['method'] }
-) & RespectOptionality<TypedFetchMeta<Schema, T>, 'body', RequestInit['body']>
+) & RespectOptionality<Meta, 'body', RequestInit['body']>
 
-export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pattern extends 'exact' | 'dynamic' = 'exact'> = {
-  [K in keyof Schema]: K extends typeof Endpoint
-    ? '' extends Method
-      ? { [M in keyof Schema[K]]: { method: M } & Schema[K][M] }[keyof Schema[K]]
-      : Method extends keyof Schema[K]
-        ? Schema[K][Method] & { method: Method }
-        : never
-    : Path extends K
-      ? TypedFetchMeta<Schema[K], Path, Method, Pattern>
-      : K extends StaticParam
-        ? Path extends `${K}${infer Rest}`
-          ? Rest extends keyof Schema[K]
-            ? Pattern extends 'dynamic'
-              ? typeof DynamicParam extends keyof Schema[K]
-                ? Path extends `${string}${string}/${infer Additional}`
-                  ? TypedFetchMeta<Schema[K][typeof DynamicParam], Additional, Method, Pattern> | TypedFetchMeta<Schema[K][Rest], Rest, Method, Pattern>
-                  : never
-                : typeof WildcardParam extends keyof Schema[K]
-                  ? TypedFetchMeta<Schema[K][typeof WildcardParam], '', Method, Pattern> | TypedFetchMeta<Schema[K][Rest], Rest, Method, Pattern>
-                  : never
-              : TypedFetchMeta<Schema[K][Rest], Rest, Method, Pattern>
-            : typeof DynamicParam extends keyof Schema[K]
-              ? Path extends `${string}${string}/${infer Rest}`
-                ? TypedFetchMeta<Schema[K][typeof DynamicParam], Rest, Method, Pattern>
-                : never
-              : typeof WildcardParam extends keyof Schema[K]
-                ? TypedFetchMeta<Schema[K][typeof WildcardParam], '', Method, Pattern>
-                : never
-          : never
-        : never
+export type TypedFetchRequestInit<Schema, T> = RequestInitFor<TypedFetchResolvedMeta<Schema, T>>
+
+/**
+ * How a path is matched against a schema.
+ *
+ * - `exact`: static segments only.
+ * - `dynamic`: parameters are considered where no static segment matches.
+ * - `ambiguous`: as `dynamic`, but a parameter has consumed a segment that is not a literal, so the
+ *   request could also have matched a static sibling and {@link EndpointMetadata.ambiguousResponse}
+ *   is preferred where an endpoint declares one.
+ */
+export type MatchPattern = 'exact' | 'dynamic' | 'ambiguous'
+
+/** Endpoints reached by matching `Path` against the static keys of `Schema`. */
+type StaticMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern> = {
+  [K in keyof Schema]: K extends StaticParam
+    ? Path extends `${K}${infer Rest}`
+      ? TypedFetchMeta<Schema[K], Rest, Method, Pattern>
+      : never
+    : never
 }[keyof Schema]
 
-export type TypedFetchResponseBody<Schema, Endpoint, Method extends HTTPMethod = 'GET'>
-  = TypedFetchMeta<Schema, Endpoint, Method> extends never
-    ? 'response' extends keyof TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>
-      ? TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>['response']
+/** Endpoints reached by consuming a segment of `Path` with a dynamic or wildcard parameter. */
+type ParamMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern> = {
+  [K in keyof Schema]: K extends typeof DynamicParam
+    ? TypedFetchMeta<Schema[K], AfterSegment<Path>, Method, LiteralSegment<Path> extends false ? 'ambiguous' : Pattern>
+    : K extends typeof WildcardParam
+      ? HasSegment<Path> extends true
+        ? TypedFetchMeta<Schema[K], '', Method, Pattern>
+        : never
       : never
-    : 'response' extends keyof TypedFetchMeta<Schema, Endpoint, Method>
-      ? TypedFetchMeta<Schema, Endpoint, Method>['response']
+}[keyof Schema]
+
+/**
+ * Metadata for the endpoints registered directly on a node, narrowed by `Method`
+ * when one is provided.
+ */
+type EndpointMeta<Endpoints, Method extends HTTPMethod | '', Pattern extends MatchPattern>
+  = '' extends Method
+    ? { [M in keyof Endpoints]: { method: M } & Ambiguate<Endpoints[M], Pattern> }[keyof Endpoints]
+    : Method extends keyof Endpoints
+      ? Ambiguate<Endpoints[Method], Pattern> & { method: Method }
       : never
 
+/**
+ * Replaces `response` with `ambiguousResponse` where the walk reached the endpoint through a
+ * parameter that consumed a segment known only at runtime, and the endpoint declares one. Endpoints
+ * without an `ambiguousResponse` are returned untouched, so this is inert until one is emitted.
+ */
+type Ambiguate<Metadata, Pattern extends MatchPattern>
+  = Pattern extends 'ambiguous'
+    ? 'ambiguousResponse' extends keyof Metadata
+      ? { [K in Exclude<keyof Metadata, 'ambiguousResponse'>]: K extends 'response' ? Metadata['ambiguousResponse'] : Metadata[K] }
+      : Metadata
+    : Metadata
+
+/** Whether the segment `Path` is about to consume is a literal rather than `string`-like. */
+type LiteralSegment<Path extends string>
+  = Path extends `/${infer Rest}`
+    ? Rest extends `${infer Head}/${string}`
+      ? string extends Head ? false : true
+      : string extends Rest ? false : true
+    : true
+
+/**
+ * Whether `Path` contains at least one non-empty segment, which a wildcard requires to match.
+ * Repeated slashes contribute no segment, so `'//'` is as empty as `'/'`.
+ */
+type HasSegment<Path extends string>
+  = Path extends `/${infer Rest}`
+    ? Rest extends ''
+      ? false
+      : Rest extends `/${string}`
+        ? HasSegment<Rest>
+        : true
+    : false
+
+/** The remainder of `Path` after consuming a single non-empty segment. */
+type AfterSegment<Path extends string>
+  = Path extends `/${infer Rest}`
+    ? Rest extends `${infer Head}/${string}`
+      ? Head extends ''
+        ? never
+        : Path extends `/${Head}${infer Tail}`
+          ? Tail
+          : never
+      : Rest extends ''
+        ? never
+        : ''
+    : never
+
+export type TypedFetchMeta<Schema, Path, Method extends HTTPMethod | '' = '', Pattern extends MatchPattern = 'exact'>
+  = Path extends ''
+    ? typeof Endpoint extends keyof Schema
+      ? EndpointMeta<Schema[typeof Endpoint], Method, Pattern>
+      : never
+    : Path extends string
+      ? Pattern extends 'dynamic' | 'ambiguous'
+        ? [StaticMatch<Schema, Path, Method, Pattern>] extends [never]
+            ? ParamMatch<Schema, Path, Method, Pattern>
+            : StaticMatch<Schema, Path, Method, Pattern>
+        : StaticMatch<Schema, Path, Method, Pattern>
+      : never
+
+/**
+ * The response body for a path, or `unknown` where the endpoint exists but declares no response, so
+ * that a route registered without a return type stays callable. A path that matches nothing, or a
+ * method the endpoint does not register, is still `never`.
+ */
+export type TypedFetchResponseBody<Schema, Endpoint, Method extends HTTPMethod = 'GET'>
+  = 'response' extends keyof TypedFetchResolvedMeta<Schema, Endpoint, Method>
+    ? TypedFetchResolvedMeta<Schema, Endpoint, Method>['response']
+    : [TypedFetchResolvedMeta<Schema, Endpoint, Method>] extends [never]
+        ? never
+        : unknown
+
 export type TypedFetchResponseHeaders<Schema, Endpoint, Method extends HTTPMethod = 'GET'>
-  = TypedFetchMeta<Schema, Endpoint, Method> extends never
-    ? 'responseHeaders' extends keyof TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>
-      ? TypedFetchMeta<Schema, Endpoint, Method, 'dynamic'>['responseHeaders']
-      : never
-    : 'responseHeaders' extends keyof TypedFetchMeta<Schema, Endpoint, Method>
-      ? TypedFetchMeta<Schema, Endpoint, Method>['responseHeaders']
-      : never
+  = 'responseHeaders' extends keyof TypedFetchResolvedMeta<Schema, Endpoint, Method>
+    ? TypedFetchResolvedMeta<Schema, Endpoint, Method>['responseHeaders']
+    : never

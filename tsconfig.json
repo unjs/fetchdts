@@ -8,6 +8,11 @@
     "moduleDetection": "force",
     "module": "preserve",
     "moduleResolution": "bundler",
+    "paths": {
+      "fetchdts": [
+        "./src/index.ts"
+      ]
+    },
     "resolveJsonModule": true,
     "strict": true,
     "noImplicitOverride": true,

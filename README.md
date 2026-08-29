@@ -48,7 +48,7 @@ interface APISchema {
         response: { id: number, name: string, email: string }
       }
     }
-    [DynamicParam]: { // /users/:id
+    [DynamicParam]: { // matches /users/123
       [Endpoint]: {
         GET: {
           response: { id: number, name: string, email: string }
@@ -149,14 +149,14 @@ interface Schema {
     POST: { body: Input, response: Data }
   }
 
-  // DynamicParam: Matches single path segments (e.g., /users/:id)
+  // DynamicParam: Matches a single path segment (e.g. the `123` of /users/123)
   [DynamicParam]: {
     [Endpoint]: {
       GET: { response: User }
     }
   }
 
-  // WildcardParam: Matches multiple path segments (e.g., /files/*)
+  // WildcardParam: Matches the rest of the path (e.g. the `a/b.txt` of /files/a/b.txt)
   [WildcardParam]: {
     [Endpoint]: {
       GET: { response: File }
@@ -229,14 +229,15 @@ const customHeader = response.headers.get('x-custom') // Typed based on schema
 ### Utilities
 
 #### `serializeRoutes(name, routes, options?)`
-Generate TypeScript schema from route definitions:
+
+Generate a TypeScript schema from route definitions. Each route is a list of segments, already split:
 
 ```ts
-import { serializeRoutes } from 'fetchdts'
+import { DynamicParam, serializeRoutes } from 'fetchdts'
 
 const schema = serializeRoutes('APISchema', [
   {
-    path: '/users',
+    segments: ['/users'],
     metadata: {
       GET: {
         responseType: 'User[]'
@@ -248,11 +249,10 @@ const schema = serializeRoutes('APISchema', [
     }
   },
   {
-    path: '/users/:id',
-    type: 'dynamic',
+    segments: ['/users', DynamicParam, '/posts'],
     metadata: {
       GET: {
-        responseType: 'User'
+        responseType: 'Post[]'
       }
     }
   }
@@ -261,6 +261,59 @@ const schema = serializeRoutes('APISchema', [
 console.log(schema)
 // Outputs TypeScript interface definition
 ```
+
+A segment is either static or a parameter:
+
+| Segment | Meaning |
+| --- | --- |
+| `'/users'`, `'users'`, `{ type: 'static', value: 'users' }` | a static segment |
+| `'https://api.example.com'` | an origin, for cross-domain schemas |
+| `DynamicParam`, `{ type: 'dynamic' }` | exactly one segment |
+| `WildcardParam`, `{ type: 'wildcard' }` | the rest of the path |
+
+The object form exists so that tools which cannot pass symbols across a serialisation boundary can
+still describe a route. Both forms produce identical output, and a static segment may itself contain
+slashes (`'/api/users'`), which keeps the emitted tree shallower.
+
+#### Converting route patterns
+
+`fetchdts` does not parse route patterns. Every router spells a parameter differently, and the
+schema only needs to know which segments are static, which match one segment, and which match the
+rest, so the conversion belongs to whichever tool already owns your patterns.
+
+If your patterns are [rou3](https://github.com/h3js/rou3) patterns, `routeNodeKeys` gives the
+canonical form directly, and gives it to you from the router that will serve the request, so the
+generated types cannot drift from the routing:
+
+```ts
+import { DynamicParam, serializeRoutes, WildcardParam } from 'fetchdts'
+import { routeNodeKeys } from 'rou3'
+
+const routes = endpoints.flatMap(({ pattern, method, responseType }) =>
+  // one pattern can land on several nodes: `/users/:id?` -> ['/users', '/users/*']
+  routeNodeKeys(pattern).map(key => ({
+    segments: key.split('/').slice(1).map(segment =>
+      segment === '*'
+        ? DynamicParam
+        : segment === '**'
+          ? WildcardParam
+          // escapes are preserved, so a literal `*` arrives as `\*`
+          : segment.replace(/\\(.)/g, '$1'),
+    ),
+    // a handler with no method is valid for every verb
+    metadata: { [method ?? 'ALL']: { responseType } },
+  })),
+)
+
+const schema = serializeRoutes('APISchema', routes)
+```
+
+For filesystem routes, [`unrouting`](https://github.com/unjs/unrouting) parses the major conventions
+and converts between them, reporting each lossy step rather than silently widening a pattern.
+
+Constrained parameters collapse onto one node: `/users/:id(\d+)` and `/users/:slug([a-z]+)` share a
+single dynamic segment in the schema, so their response types are unioned. Radix-tree routers group
+them the same way and re-check the constraint per node, which a type cannot do.
 
 ## Advanced Examples
 
@@ -334,6 +387,102 @@ await api('/api/users/123/posts') // Post[]
 await api('/api/users/123/posts/456') // Post
 ```
 
+### Handlers Registered for Every Method
+
+A handler that is valid for every HTTP verb can be expressed compactly with `Record<HTTPMethod, ...>`:
+
+```ts
+interface APISchema {
+  '/api': {
+    '/hello': {
+      [Endpoint]: Record<HTTPMethod, { response: { hello: string } }>
+    }
+  }
+}
+```
+
+`serializeRoutes` emits that form for an `ALL` entry, which is worth using over spelling out every
+method, as the generated file is several times smaller:
+
+```ts
+serializeRoutes('APISchema', [
+  {
+    segments: ['/api', '/hello'],
+    metadata: {
+      ALL: { responseType: '{ hello: string }' },
+      // a specific method takes precedence over `ALL`
+      POST: { bodyType: '{ name: string }', responseType: 'Created' }
+    }
+  }
+])
+```
+
+### Registering a Route Without a Return Type
+
+A route whose response type isn't known, because a handler couldn't be resolved or is a proxy, is
+still a route, and should stay callable rather than looking like a typo. Register it for every method
+with nothing else declared:
+
+```ts
+serializeRoutes('APISchema', [
+  { segments: ['/api', '/proxy'], metadata: { ALL: {} } },
+])
+
+// [Endpoint]: Record<HTTPMethod, {}>
+```
+
+The path is then a valid input, takes any method, and its response is `unknown`. A path that matches
+nothing, or a method an endpoint doesn't register, is still `never`, so the two cases stay
+distinguishable:
+
+```ts
+type A = TypedFetchResponseBody<APISchema, '/api/proxy'> // unknown
+type B = TypedFetchResponseBody<APISchema, '/api/typo'> // never
+```
+
+Omitting `metadata` entirely is not the same thing: it emits no endpoint at all, so the path is not
+offered. That is deliberate, so that a generator which skips handlers it cannot type doesn't widen
+its surface by accident.
+
+### Requests Built From Runtime Values
+
+`` $fetch(`/api/posts/${id}`) `` has the type `` `/api/posts/${string}` ``, so it matches the dynamic
+parameter, but at runtime `id` could be `'static'` and hit a static sibling instead. By default the
+dynamic parameter's response is used, which is exact for a literal path and optimistic for this one.
+
+Where that matters, an endpoint can declare the response to use when the segment reaching it was not
+a literal:
+
+```ts
+interface APISchema {
+  '/api/posts': {
+    '/static': { [Endpoint]: { GET: { response: Static } } }
+    [DynamicParam]: {
+      [Endpoint]: {
+        GET: {
+          response: Post
+          ambiguousResponse: Post | Static
+        }
+      }
+    }
+  }
+}
+
+type A = TypedFetchResponseBody<APISchema, `/api/posts/${string}`> // Post | Static
+type B = TypedFetchResponseBody<APISchema, '/api/posts/123'> // Post
+type C = TypedFetchResponseBody<APISchema, '/api/posts/static'> // Static
+```
+
+The union is not computed for you, deliberately: which siblings a request could reach is a property
+of the route set, and whoever generates the schema knows it, so computing it once at generation time
+costs a fraction of deriving it at every call site. `serializeRoutes` emits an
+`ambiguousResponseType` like any other metadata field. An endpoint that declares no
+`ambiguousResponse` behaves exactly as before, so this is opt-in per endpoint.
+
+The alternative is only used where a *parameter* consumed a non-literal segment. A wildcard is
+unaffected, since it matches the rest of the path either way, and it applies to endpoints below the
+parameter too, so `` `/api/users/${string}/posts` `` can account for a `/api/users/me/posts` sibling.
+
 ### Cross-Domain API Support
 
 ```ts
@@ -386,6 +535,39 @@ else {
 ```
 
 ## Best Practices
+
+### Typing a Fetch Function
+
+Keep the init type in *parameter* position, and make the method a type parameter if the response
+needs to narrow by it:
+
+```ts
+declare function $fetch<T extends TypedFetchInput<Schema>, M extends HTTPMethod = 'GET'>(
+  input: T,
+  init?: TypedFetchRequestInit<Schema, T> & { method?: M },
+): TypedFetchResponseBody<Schema, Trimmed<T>, M>
+```
+
+Constraining a type parameter to the init type instead looks equivalent, but is not:
+
+```ts
+// avoid: `Init` is constrained by every path in the schema
+declare function $fetch<T extends TypedFetchInput<Schema>, Init extends TypedFetchRequestInit<Schema, T>>(
+  input: T,
+  init?: Init,
+): TypedFetchResponseBody<Schema, Trimmed<T>, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>
+```
+
+The constraint is instantiated with `T` as the whole path union, so the request init is computed for
+every route in the schema before a single call site is checked. On a schema of any size this
+dominates everything else: the cost stops tracking the number of call sites and starts tracking the
+number of routes, several times over. `pnpm bench --eager-init` measures the difference.
+
+Two smaller notes on the same signature. An endpoint declares the headers it *requires*, so add
+`{ headers?: Record<string, string> }` to the init if callers should be free to send others.
+And if some paths only accept a method other than `GET`, a second overload constrained to
+`TypedFetchInput<Schema, 'GET'>` with an optional init keeps those paths from being called without
+one.
 
 ### Schema Organization
 

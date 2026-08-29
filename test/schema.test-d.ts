@@ -1,6 +1,6 @@
 import type { TypedResponse } from '../src/fetch'
 import type { HTTPMethod } from '../src/http'
-import type { TypedFetchInput, TypedFetchMeta, TypedFetchRequestInit, TypedFetchResponseBody, TypedFetchResponseHeaders } from '../src/inference'
+import type { TypedFetchInput, TypedFetchRequestInit, TypedFetchResolvedMeta, TypedFetchResponseBody, TypedFetchResponseHeaders } from '../src/inference'
 import type { RespectOptionality, Trimmed } from '../src/utils'
 
 import type { ExampleSchema } from './fixture/schema'
@@ -40,6 +40,15 @@ describe('fetchdts', () => {
     infer('/methods/post')
 
     expectTypeOf(infer('/methods/post', { method: 'POST' })).toEqualTypeOf<{ method: 'POST' }>()
+  })
+
+  it('should accept options for paths reached through a parameter', () => {
+    expectTypeOf(infer('/api/dynamic', { method: 'POST' })).toEqualTypeOf<{ type: 'dynamic', method: 'POST' }>()
+    // the wildcard endpoint declares a body, which is required as it would be for a static path
+    expectTypeOf(infer('https://jsonplaceholder.typicode.com/anything', { method: 'GET', body: { id: true } })).toEqualTypeOf<string>()
+
+    // @ts-expect-error missing body
+    infer('https://jsonplaceholder.typicode.com/anything', { method: 'GET' })
   })
 
   it('should support parameters', () => {
@@ -140,19 +149,25 @@ describe('fetchdts', () => {
   })
 })
 
-type CustomTypedFetchRequestInit<Schema, T extends TypedFetchInput<Schema>> = TypedFetchRequestInit<Schema, T> & RespectOptionality<TypedFetchMeta<Schema, T>, 'query', Record<string, unknown>>
+// the init type sits in parameter position rather than as a generic constraint, so that it is
+// computed for the path being requested rather than for every path in the schema
+type CustomTypedFetchRequestInit<Schema, T extends TypedFetchInput<Schema>>
+  = TypedFetchRequestInit<Schema, T>
+    & RespectOptionality<TypedFetchResolvedMeta<Schema, T>, 'query', Record<string, unknown>>
+    // endpoints declare the headers they require, without ruling out any others
+    & { headers?: Record<string, string> }
 
-function infer<T extends TypedFetchInput<ExampleSchema>, Init extends CustomTypedFetchRequestInit<ExampleSchema, T>>(_input: T, _init: Init): TypedFetchResponseBody<ExampleSchema, Trimmed<T>, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>
+function infer<T extends TypedFetchInput<ExampleSchema>, M extends HTTPMethod>(_input: T, _init: CustomTypedFetchRequestInit<ExampleSchema, T> & { method: M }): TypedFetchResponseBody<ExampleSchema, Trimmed<T>, M>
 
-function infer<T extends TypedFetchInput<ExampleSchema, 'GET'>, Init extends CustomTypedFetchRequestInit<ExampleSchema, T>>(_input: T, _init?: Init): TypedFetchResponseBody<ExampleSchema, Trimmed<T>, 'GET'>
+function infer<T extends TypedFetchInput<ExampleSchema, 'GET'>>(_input: T, _init?: CustomTypedFetchRequestInit<ExampleSchema, T>): TypedFetchResponseBody<ExampleSchema, Trimmed<T>, 'GET'>
 
 function infer(_input: any, _init?: any) {
   return {} as any
 }
 
-function inferResponse<T extends TypedFetchInput<ExampleSchema>, Init extends CustomTypedFetchRequestInit<ExampleSchema, T>>(_input: T, _init: Init): TypedResponse<TypedFetchResponseBody<ExampleSchema, Trimmed<T>, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>, TypedFetchResponseHeaders<ExampleSchema, Trimmed<T>, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>>
+function inferResponse<T extends TypedFetchInput<ExampleSchema>, M extends HTTPMethod>(_input: T, _init: CustomTypedFetchRequestInit<ExampleSchema, T> & { method: M }): TypedResponse<TypedFetchResponseBody<ExampleSchema, Trimmed<T>, M>, TypedFetchResponseHeaders<ExampleSchema, Trimmed<T>, M>>
 
-function inferResponse<T extends TypedFetchInput<ExampleSchema, 'GET'>, Init extends CustomTypedFetchRequestInit<ExampleSchema, T>>(_input: T, _init?: Init): TypedResponse<TypedFetchResponseBody<ExampleSchema, Trimmed<T>, 'GET'>, TypedFetchResponseHeaders<ExampleSchema, Trimmed<T>, 'GET'>>
+function inferResponse<T extends TypedFetchInput<ExampleSchema, 'GET'>>(_input: T, _init?: CustomTypedFetchRequestInit<ExampleSchema, T>): TypedResponse<TypedFetchResponseBody<ExampleSchema, Trimmed<T>, 'GET'>, TypedFetchResponseHeaders<ExampleSchema, Trimmed<T>, 'GET'>>
 
 function inferResponse(_input: any, _init?: any) {
   return {} as any
