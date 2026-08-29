@@ -1,4 +1,4 @@
-import type { TypedHeaders, TypedRequest, TypedResponse } from '../src/fetch'
+import type { LooseTypedHeaders, LooseTypedRequest, TypedHeaders, TypedRequest, TypedResponse } from '../src/fetch'
 import type { RequestHeaderMap, ResponseHeaderMap } from '../src/http'
 import { describe, expectTypeOf, it } from 'vitest'
 
@@ -330,5 +330,60 @@ describe('Integration with fetchdts inference types', () => {
 
     expectTypeOf(getResponse.headers.get('x-total-count')).toEqualTypeOf<string | null>()
     expectTypeOf(postResponse.headers.get('location')).toEqualTypeOf<string | null>()
+  })
+})
+
+describe('optional header map keys', () => {
+  it('should not surface `undefined` for optional keys', () => {
+    type OptionalHeaders = TypedHeaders<{ 'x-thing'?: string }>
+
+    const headers = {} as OptionalHeaders
+
+    expectTypeOf(headers.get('x-thing')).toEqualTypeOf<string | null>()
+    expectTypeOf<OptionalHeaders>().toExtend<Headers>()
+    expectTypeOf<TypedResponse<unknown, { 'x-thing'?: string }>>().toExtend<Response>()
+  })
+})
+
+describe('LooseTypedHeaders', () => {
+  it('should type names but leave values as `string`', () => {
+    const headers = {} as LooseTypedHeaders<{ 'x-thing': 'a' | 'b' }>
+
+    expectTypeOf(headers.get).parameter(0).toEqualTypeOf<'x-thing' | string & {}>()
+    expectTypeOf(headers.get('x-thing')).toEqualTypeOf<string | null>()
+    expectTypeOf(headers.has).parameter(0).toEqualTypeOf<'x-thing' | string & {}>()
+  })
+
+  it('should be usable with a deferred header map', () => {
+    function toLoose<M>(headers: Headers): LooseTypedHeaders<M> {
+      return headers
+    }
+    function toPlain<M>(headers: LooseTypedHeaders<M>): Headers {
+      return headers
+    }
+    function toLooseRequest<Body, M>(request: Request): LooseTypedRequest<Body, M> {
+      return request
+    }
+
+    expectTypeOf(toLoose).not.toBeNever()
+    expectTypeOf(toPlain).not.toBeNever()
+    expectTypeOf(toLooseRequest).not.toBeNever()
+  })
+
+  it('should stay assignable through a wrapper generic over the map', () => {
+    type MapOf<T extends { headers?: unknown }> = Record<keyof ResponseHeaderMap, string>
+      // eslint-disable-next-line ts/no-empty-object-type
+      & (NonNullable<T['headers']> extends Record<string, string> ? NonNullable<T['headers']> : {})
+
+    interface Wrapper<T extends { headers?: unknown }> {
+      headers: LooseTypedHeaders<MapOf<T>>
+    }
+
+    function takesBase(_wrapper: Wrapper<{ headers?: unknown }>) {}
+    function passesSpecific<T extends { headers?: unknown }>(wrapper: Wrapper<T>) {
+      takesBase(wrapper)
+    }
+
+    expectTypeOf(passesSpecific).not.toBeNever()
   })
 })

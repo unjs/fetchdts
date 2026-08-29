@@ -35,5 +35,5 @@ export interface TypedURLSearchParams<QueryMap extends Record<string, string> | 
    * [MDN Reference](https://developer.mozilla.org/docs/Web/API/URLSearchParams/set)
    */
   set: <Name extends Extract<keyof QueryMap, string> | string & {}> (name: Name, value: Name extends keyof QueryMap ? QueryMap[Name] extends string ? QueryMap[Name] : string : string) => void
-  forEach: (callbackfn: (value: QueryMap[keyof QueryMap] | string & {}, key: Extract<keyof QueryMap, string> | string & {}, parent: URLSearchParams) => void, thisArg?: any) => void
+  forEach: (callbackfn: (value: Extract<QueryMap[keyof QueryMap], string> | string & {}, key: Extract<keyof QueryMap, string> | string & {}, parent: URLSearchParams) => void, thisArg?: any) => void
 }
