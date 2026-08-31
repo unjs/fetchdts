@@ -55,11 +55,15 @@ describe('nested route resolution', () => {
     expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files/a'>>().toEqualTypeOf<9>()
   })
 
-  it('requires a wildcard to consume a non-empty segment', () => {
-    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files/'>>().toBeNever()
-    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files//'>>().toBeNever()
-    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files///'>>().toBeNever()
+  it('lets a wildcard consume no segments at all', () => {
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files'>>().toEqualTypeOf<9>()
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files/'>>().toEqualTypeOf<9>()
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files//'>>().toEqualTypeOf<9>()
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files///'>>().toEqualTypeOf<9>()
     expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files//a'>>().toEqualTypeOf<9>()
+
+    // a wildcard is still reached only at a segment boundary
+    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/filesystem'>>().toBeNever()
   })
 
   it('returns unknown for a route registered without a return type', () => {
@@ -78,7 +82,6 @@ describe('nested route resolution', () => {
     expectTypeOf<TypedFetchResponseBody<StaticDepth3, '/a/b'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<StaticDepth3, '/a/b/d'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<StaticAfterDynamic, '/api/users/123/comments'>>().toBeNever()
-    expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/files/'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<DeepWildcard, '/api/filesystem'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<Depth1, '/posts/'>>().toBeNever()
     expectTypeOf<TypedFetchResponseBody<Depth1, '/postscript'>>().toBeNever()
@@ -91,13 +94,13 @@ describe('nested route resolution', () => {
   })
 
   it('types request init for nested paths', () => {
-    expectTypeOf<TypedFetchMeta<StaticDepth3, '/a/b/c'>['method']>().toEqualTypeOf<'GET'>()
+    expectTypeOf<TypedFetchMeta<StaticDepth3, '/a/b/c'>['method']>().toEqualTypeOf<'GET' | 'HEAD'>()
     expectTypeOf<{ method: 'GET' }>().toMatchTypeOf<TypedFetchRequestInit<StaticDepth3, '/a/b/c'>>()
   })
 
   it('types request init for paths reached through a parameter', () => {
-    expectTypeOf<TypedFetchResolvedMeta<StaticAfterDynamic, '/api/users/123/posts'>['method']>().toEqualTypeOf<'GET'>()
-    expectTypeOf<TypedFetchResolvedMeta<DeepWildcard, '/api/files/a/b'>['method']>().toEqualTypeOf<'GET'>()
+    expectTypeOf<TypedFetchResolvedMeta<StaticAfterDynamic, '/api/users/123/posts'>['method']>().toEqualTypeOf<'GET' | 'HEAD'>()
+    expectTypeOf<TypedFetchResolvedMeta<DeepWildcard, '/api/files/a/b'>['method']>().toEqualTypeOf<'GET' | 'HEAD'>()
 
     // a parameterised path is only reached by the dynamic pass, so an exact-only lookup would leave
     // every property of the init `never` and make the options object impossible to satisfy
