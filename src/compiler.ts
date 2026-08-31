@@ -155,6 +155,9 @@ const reserved = new Set([
   'yield',
 ])
 
+/** the names the emitted module declares itself, which an interface it resolves against cannot take */
+const emitted = new Set(['Exact', 'Path', 'ValidInput', 'Response', 'Methods', 'ResponseHeaders', 'ErrorBody', 'RequestBody', 'RequestQuery', 'RequestHeaders', 'Requires'])
+
 /** Escapes a segment interpolated into an emitted template literal type. */
 function templatePart(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
@@ -193,9 +196,15 @@ export function compileRoutes(sets: RouteSet[], options?: CompileOptions): Compi
   if (!identifier.test(name) || reserved.has(name)) {
     throw new TypeError(`Cannot compile routes as \`${name}\`, which is not a valid interface name.`)
   }
+  if (emitted.has(name)) {
+    throw new TypeError(`Cannot compile routes as \`${name}\`, which the emitted module declares itself.`)
+  }
   const target = options?.resolveAgainst ?? name
   if (!identifier.test(target) || reserved.has(target)) {
     throw new TypeError(`Cannot resolve paths against \`${target}\`, which is not a valid interface name.`)
+  }
+  if (emitted.has(target)) {
+    throw new TypeError(`Cannot resolve paths against \`${target}\`, which the emitted module declares itself.`)
   }
   const specifier = options?.moduleSpecifier ?? 'fetchdts'
   // no module is named with a quote, a backslash or a newline, so they are rejected rather than escaped

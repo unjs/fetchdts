@@ -212,6 +212,11 @@ describe('compileRoutes', () => {
     expect(() => compileRoutes([{ routes: api }], { resolveAgainst: 'not an identifier' })).toThrow(/not a valid interface name/)
   })
 
+  it('rejects a name the emitted module declares itself', () => {
+    expect(() => compileRoutes([{ routes: api }], { name: 'Response' })).toThrow(/declares itself/)
+    expect(() => compileRoutes([{ routes: api }], { resolveAgainst: 'Exact' })).toThrow(/declares itself/)
+  })
+
   it('emits extra imports after its own, keeping the banner first', () => {
     const compiled = compileRoutes([{ routes: api }], { imports: ['import type { Serialize } from \'nuxt/app\''] })
     const lines = compiled.code.split('\n')
