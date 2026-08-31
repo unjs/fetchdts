@@ -467,7 +467,7 @@ export type TypedFetchRequires<Schema, Path, Method extends AnyHTTPMethod | '', 
       : false
 
 /**
- * The methods a path answers, or every method where it resolves to nothing.
+ * The methods a path answers, in either case, or every method where it resolves to nothing.
  *
  * A path union carries no method, so a signature constrained by one accepts a path the schema knows
  * for a method it does not. Constrain the method with this rather than intersecting a validator onto
@@ -480,7 +480,9 @@ export type TypedFetchMethods<Schema, Path>
   = [TypedFetchResolvedMeta<Schema, Path, ''>] extends [never]
     ? AnyHTTPMethod
     : TypedFetchResolvedMeta<Schema, Path, ''> extends { method: infer Method }
-      ? Method
+      // in either case, since a method may be written in either and this constrains what a caller
+      // may pass
+      ? WritableMethod<Method>
       : AnyHTTPMethod
 
 export type TypedFetchResponseHeaders<Schema, Endpoint, Method extends AnyHTTPMethod = 'GET'>

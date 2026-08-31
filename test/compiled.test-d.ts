@@ -220,8 +220,8 @@ describe('a path built from a runtime value', () => {
   })
 
   it('reports the methods a path answers, and rejects one it does not', async () => {
-    expectTypeOf<Methods<'/api/health'>>().toEqualTypeOf<'GET' | 'HEAD'>()
-    expectTypeOf<Methods<'/api/users'>>().toEqualTypeOf<'GET' | 'POST' | 'HEAD'>()
+    expectTypeOf<Methods<'/api/health'>>().toEqualTypeOf<'GET' | 'HEAD' | 'get' | 'head'>()
+    expectTypeOf<Methods<'/api/users'>>().toEqualTypeOf<'GET' | 'POST' | 'HEAD' | 'get' | 'post' | 'head'>()
     // @ts-expect-error the endpoint registers no PUT
     await request('/api/health', { method: 'PUT' })
     // @ts-expect-error no such path

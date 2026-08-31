@@ -152,12 +152,27 @@ describe('methods written in lowercase', () => {
 })
 
 describe('TypedFetchMethods', () => {
-  it('gives the methods a path answers', () => {
-    expectTypeOf<TypedFetchMethods<Overlapping, '/api/blog/thing'>>().toEqualTypeOf<'POST' | 'GET' | 'HEAD'>()
+  it('gives the methods a path answers, in either case', () => {
+    expectTypeOf<TypedFetchMethods<Overlapping, '/api/blog/thing'>>()
+      .toEqualTypeOf<'POST' | 'GET' | 'HEAD' | 'post' | 'get' | 'head'>()
   })
 
   it('gives every method where the path resolves to nothing', () => {
     expectTypeOf<TypedFetchMethods<Overlapping, '/nope'>>().toEqualTypeOf<AnyHTTPMethod>()
+  })
+
+  it('accepts a lowercase method where it constrains an init member', () => {
+    function request<T extends AnyFetchPath, M extends AnyHTTPMethod = 'GET'>(
+      _input: T & ValidFetchInput<Overlapping, T, M>,
+      _init?: { method?: M & TypedFetchMethods<Overlapping, T> },
+    ): TypedFetchResponseBody<Overlapping, T, M> {
+      return undefined as never
+    }
+
+    expectTypeOf(request('/api/123', { method: 'post' })).toEqualTypeOf<'A'>()
+    expectTypeOf(request('/api/123', { method: 'POST' })).toEqualTypeOf<'A'>()
+    // @ts-expect-error the path answers no PUT
+    request('/api/123', { method: 'put' })
   })
 })
 

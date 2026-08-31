@@ -319,7 +319,7 @@ const response = await api('/users/123')
 
 #### `TypedFetchMethods<Schema, Path>`
 
-The methods a path answers, or every method where it resolves to nothing. Constrain a signature's
+The methods a path answers, in either case, or every method where it resolves to nothing. Constrain a signature's
 method parameter with it (`method?: M & TypedFetchMethods<Schema, T>`) to reject a method the path
 does not answer, which a path union cannot express on its own.
 
