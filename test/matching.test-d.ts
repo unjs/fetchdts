@@ -564,6 +564,32 @@ describe('the completion signature of the pair', () => {
   })
 })
 
+describe('a parameter in the path union', () => {
+  interface Parameterised {
+    '/api/users': {
+      [Endpoint]: { GET: { response: 'users' } }
+      [DynamicParam]: { [Endpoint]: { GET: { response: 'user' } } }
+    }
+  }
+  type Paths = Extract<TypedFetchInput<Parameterised>, string>
+
+  it('is a pattern, so a path with extra segments satisfies the union', () => {
+    expectTypeOf<'/api/users/1'>().toExtend<Paths>()
+    // `${string}` may contain a slash, and no template literal type can exclude one
+    expectTypeOf<'/api/users/1/2'>().toExtend<Paths>()
+  })
+
+  it('resolves only where the parameter consumes one segment', () => {
+    expectTypeOf<TypedFetchResponseBody<Parameterised, '/api/users/1'>>().toEqualTypeOf<'user'>()
+    expectTypeOf<TypedFetchResponseBody<Parameterised, '/api/users/1/2'>>().toBeNever()
+  })
+
+  it('is rejected by the validator, which is what the union cannot do', () => {
+    expectTypeOf<ValidFetchInput<Parameterised, '/api/users/1'>>().toBeUnknown()
+    expectTypeOf<ValidFetchInput<Parameterised, '/api/users/1/2'>>().not.toBeUnknown()
+  })
+})
+
 describe('an input that is not a path', () => {
   interface Fetchable {
     '/api/health': { [Endpoint]: { GET: { response: 'ok' } } }

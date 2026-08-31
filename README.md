@@ -226,6 +226,11 @@ type ValidPaths = TypedFetchInput<APISchema>
 // Result: '/users' | '/users/${string}'
 ```
 
+A parameter is a `${string}` placeholder, and `${string}` may contain a slash, so a member covering a
+parameter is a pattern that also matches a path with extra segments: `'/users/1/2'` is assignable to
+`` `/users/${string}` ``. The union is what gives an editor its completions; `ValidFetchInput` is what
+rejects a path the schema does not resolve.
+
 #### `AnyFetchPath`
 
 The shape any path may take, for use as the constraint of the type parameter a path is inferred into:
@@ -818,6 +823,12 @@ The first signature answers a path the union covers: the union gives an editor i
 the plain parameter is what lets `` `/api/users/${id}` `` infer as a template literal type. The second
 takes what the union cannot express (a query string, a fragment, a trailing slash, a `Request` or a
 `URL`) and validates it.
+
+The cost of the plain parameter is that a union member covering a route parameter is a pattern, so
+`'/api/users/1/2'` satisfies `` `/api/users/${string}` `` and the first signature accepts it, with the
+response resolving to `never`. Validate the first signature as well if that matters more than
+inferring `` `/api/users/${id}` ``, since the two cannot both hold: intersecting the validator stops a
+template literal argument from inferring, and the path then resolves as the whole union.
 
 Three things have to be true at once and they pull against each other, so the shape is worth
 understanding rather than copying:
