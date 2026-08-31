@@ -1,7 +1,8 @@
 /* eslint-disable no-console */
 // Measures tsc type instantiations for a generated N-route schema.
 // Usage: node bench/instantiations.mjs [--routes 150] [--calls 60] [--depth 3] [--src ./src]
-//                                      [--siblings 0] [--template] [--ambiguous] [--eager-init]
+//                                      [--siblings 0] [--template] [--ambiguous] [--valid-input]
+//                                      [--overloads] [--eager-init]
 //
 // --siblings adds N static routes alongside each dynamic one, and --template requests the dynamic
 // routes with a template literal (`/a/b/${string}`) rather than a concrete path, which together
@@ -9,6 +10,13 @@
 //
 // --ambiguous emits an `ambiguousResponse` on each dynamic endpoint, as a caller that precomputes
 // the union of its static siblings would, which is what a template-literal request then resolves to.
+//
+// --valid-input constrains the input with `ValidFetchInput` in parameter position instead of
+// the union of every path, which is the shape to prefer on a large generated schema.
+//
+// --overloads pairs that signature with a second one constrained to the union, which is what keeps
+// path completions in an editor. This is the documented default; measure it against --valid-input to
+// see what the completion overload costs.
 //
 // --eager-init constrains a generic to the init type instead of using it in parameter position,
 // which forces the init to be computed for the whole path union before any call site is checked.
@@ -44,6 +52,8 @@ const siblings = count('siblings', 0, 0)
 const template = args.includes('--template')
 const ambiguous = args.includes('--ambiguous')
 const eagerInit = args.includes('--eager-init')
+const validInput = args.includes('--valid-input')
+const overloads = args.includes('--overloads')
 const root = fileURLToPath(new URL('..', import.meta.url))
 const src = path.resolve(root, arg('src', 'src'))
 
@@ -103,13 +113,17 @@ mkdirSync(dir, { recursive: true })
 const specifier = name => JSON.stringify(path.join(src, name).replaceAll(path.sep, '/'))
 
 let source = `import type { DynamicParam, Endpoint } from ${specifier('tree')}\n`
-source += `import type { HTTPMethod } from ${specifier('http/index')}\n`
-source += `import type { TypedFetchInput, TypedFetchRequestInit, TypedFetchResponseBody } from ${specifier('inference')}\n`
+source += `import type { AnyHTTPMethod } from ${specifier('inference')}\n`
+source += `import type { TypedFetchInput, TypedFetchRequestInit, TypedFetchResponseBody, ValidFetchInput } from ${specifier('inference')}\n`
 source += `import type { Trimmed } from ${specifier('utils')}\n\n`
 source += `interface Schema {\n${schema}}\n\n`
 source += eagerInit
   ? `declare function $fetch<T extends TypedFetchInput<Schema>, Init extends TypedFetchRequestInit<Schema, T>>(input: T, init?: Init): TypedFetchResponseBody<Schema, Trimmed<T>, 'GET'>\n\n`
-  : `declare function $fetch<T extends TypedFetchInput<Schema>, M extends HTTPMethod = 'GET'>(input: T, init?: TypedFetchRequestInit<Schema, T> & { method?: M }): TypedFetchResponseBody<Schema, Trimmed<T>, M>\n\n`
+  : overloads
+    ? `declare function $fetch<T extends TypedFetchInput<Schema>, M extends AnyHTTPMethod = 'GET'>(input: T & ValidFetchInput<Schema, T, M>, init?: TypedFetchRequestInit<Schema, T, M> & { method?: M }): TypedFetchResponseBody<Schema, T, M>\ndeclare function $fetch<T extends string, M extends AnyHTTPMethod = 'GET'>(input: T & ValidFetchInput<Schema, T, M>, init?: TypedFetchRequestInit<Schema, T, M> & { method?: M }): TypedFetchResponseBody<Schema, T, M>\n\n`
+    : validInput
+      ? `declare function $fetch<T extends string, M extends AnyHTTPMethod = 'GET'>(input: T & ValidFetchInput<Schema, T, M>, init?: TypedFetchRequestInit<Schema, T, M> & { method?: M }): TypedFetchResponseBody<Schema, Trimmed<T>, M>\n\n`
+      : `declare function $fetch<T extends TypedFetchInput<Schema>, M extends AnyHTTPMethod = 'GET'>(input: T, init?: TypedFetchRequestInit<Schema, T, M> & { method?: M }): TypedFetchResponseBody<Schema, Trimmed<T>, M>\n\n`
 source += 'declare const param: string\n\n'
 for (let i = 0; i < calls; i++) {
   const { prefix, dynamic } = paths[i % paths.length]
@@ -155,7 +169,7 @@ try {
   }
 
   const wanted = ['Instantiations', 'Types', 'Memory used', 'Total time', 'Check time']
-  console.log(`routes=${routes} calls=${calls} depth=${depth}${siblings > 0 ? ` siblings=${siblings}` : ''}${template ? ' template' : ''}${ambiguous ? ' ambiguous' : ''}${eagerInit ? ' eager-init' : ''} src=${path.relative(root, src) || 'src'}`)
+  console.log(`routes=${routes} calls=${calls} depth=${depth}${siblings > 0 ? ` siblings=${siblings}` : ''}${template ? ' template' : ''}${ambiguous ? ' ambiguous' : ''}${validInput ? ' valid-input' : ''}${overloads ? ' overloads' : ''}${eagerInit ? ' eager-init' : ''} src=${path.relative(root, src) || 'src'}`)
   for (const line of output.split('\n')) {
     if (wanted.some(key => line.startsWith(key))) {
       console.log(`  ${line.trim()}`)

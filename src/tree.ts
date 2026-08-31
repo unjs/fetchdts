@@ -14,10 +14,11 @@ export interface EndpointMetadata {
   headers: Record<string, unknown>
   body: never | Record<string, unknown>
   response: unknown
+  /** The body of a response the endpoint fails with, for a client that types its error. */
+  errorResponse: unknown
   /**
-   * The response where the request could have matched a static sibling of the parameter it was
-   * resolved through, because the segment was known only at runtime. Typically a union of this
-   * endpoint's response and those of the siblings; see the readme.
+   * The response to use where the segment reaching this endpoint was known only at runtime, so the
+   * request could also have matched a static sibling. Overrides the union the matcher computes.
    */
   ambiguousResponse: unknown
   responseHeaders: Record<string, unknown>

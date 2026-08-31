@@ -122,11 +122,11 @@ interface Schema {
 }
 ```
 
-**Wildcard Parameters**: Multiple path segments
+**Wildcard Parameters**: Zero or more path segments
 ```ts
 interface Schema {
   '/api': {
-    [WildcardParam]: { // matches /api/anything/nested/deep
+    [WildcardParam]: { // matches /api, /api/anything, /api/nested/deep
       [Endpoint]: {
         GET: { response: any }
       }
@@ -134,6 +134,26 @@ interface Schema {
   }
 }
 ```
+
+**Matching order**: a static segment is preferred to a dynamic parameter, and a dynamic parameter to
+a wildcard, as in a router. Where the more specific match does not answer the method being
+requested, the less specific one is used, so a `POST`-only static route and a `GET` wildcard sibling
+are both reachable at the same path:
+
+```ts
+interface Schema {
+  '/api/blog': {
+    '/thing': { [Endpoint]: { POST: { response: D } } }
+    [WildcardParam]: { [Endpoint]: { GET: { response: C } } }
+  }
+}
+
+type A = TypedFetchResponseBody<Schema, '/api/blog/thing', 'POST'> // D
+type B = TypedFetchResponseBody<Schema, '/api/blog/thing', 'GET'> // C
+```
+
+A query string, a fragment and a trailing slash are ignored when a path is resolved, so
+`'/api/users?page=2'` resolves as `'/api/users'` does.
 
 ### Symbols Reference
 
@@ -156,7 +176,7 @@ interface Schema {
     }
   }
 
-  // WildcardParam: Matches the rest of the path (e.g. the `a/b.txt` of /files/a/b.txt)
+  // WildcardParam: Matches the rest of the path, which may be empty (e.g. the `a/b.txt` of /files/a/b.txt)
   [WildcardParam]: {
     [Endpoint]: {
       GET: { response: File }
@@ -170,6 +190,11 @@ interface Schema {
 All standard HTTP methods are supported:
 - `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
 - `OPTIONS`, `HEAD`, `CONNECT`, `TRACE`
+
+Methods may be written in either case (`'POST'` or `'post'`), as a router compares them
+case-insensitively. A route registered for `GET` also answers `HEAD`, as it does in h3, which serves
+the `GET` handler and discards the body; an endpoint that registers `HEAD` itself is used in
+preference.
 
 ```ts
 interface RESTSchema {
@@ -201,7 +226,71 @@ type ValidPaths = TypedFetchInput<APISchema>
 // Result: '/users' | '/users/${string}'
 ```
 
-#### `TypedFetchRequestInit<Schema, Path>`
+A parameter is a `${string}` placeholder, and `${string}` may contain a slash, so a member covering a
+parameter is a pattern that also matches a path with extra segments: `'/users/1/2'` is assignable to
+`` `/users/${string}` ``. The union is what gives an editor its completions; `ValidFetchInput` is what
+rejects a path the schema does not resolve.
+
+#### `AnyFetchPath`
+
+The shape any path may take, for use as the constraint of the type parameter a path is inferred into:
+
+```ts
+declare function $fetch<T extends AnyFetchPath>(input: T /* ... */): unknown
+```
+
+Constrain to this rather than to `string`, which loses the path of `useFetch(ref('/api/users'))`:
+`ref()` and `computed()` infer their own type parameter from the argument, and a literal widens where
+the type it is inferred into is constrained by `string` and keeps its literal type where the
+constraint is a pattern. A direct literal, a getter and a pre-declared `Ref<'/api/users'>` are
+unaffected either way, and a union of paths has the same effect as a pattern, so a signature
+constrained to `TypedFetchInput<Schema>` does not need this as well.
+
+#### `ValidFetchInput<Schema, Path, Method?>`
+
+Whether a path resolves, for use in parameter position:
+
+```ts
+declare function $fetch<T extends AnyFetchPath, M extends AnyHTTPMethod = 'GET'>(
+  input: T & ValidFetchInput<Schema, T, M>,
+  init?: TypedFetchRequestInit<Schema, T, M> & { method?: M },
+): TypedFetchResponseBody<Schema, T, M>
+```
+
+This is an alternative to constraining the input with `TypedFetchInput`, which materialises the
+union of every path in the schema. Validating one path costs no more than its depth, where checking
+a union costs the size of the schema, so on a large generated schema this is substantially cheaper:
+at 1500 routes and 200 call sites it checks in around 0.4s where the union takes around 3s
+(`pnpm bench --routes 1500 --calls 200 [--valid-input]`). It accepts a query string or a fragment
+without enumerating either, and narrows by method.
+
+A path that resolves gives `unknown`, which leaves the parameter as `T`. One that does not gives a
+type no string satisfies, whose single key carries the reason, so the failure reads as:
+
+```text
+Argument of type '"/api/nope"' is not assignable to parameter of type
+  '"/api/nope" & { "fetchdts: no GET route matches '/api/nope'": never }'
+```
+
+The text is a diagnostic rather than API, and may change.
+
+Put it on *every* signature that admits a path, including one already constrained by
+`TypedFetchInput`: the union carries no method, so a signature constrained by it alone accepts a path
+the schema knows for a method that path does not answer.
+
+An input that is not a path, such as a `Request` or a `URL`, which `fetch` also takes, carries nothing to
+check and is accepted, so a client admitting them can validate every signature without rejecting
+them.
+
+Every member of a union of paths must resolve, so a value narrowed to one of several paths cannot
+pass on the strength of one of them. A path known only to be a `string` matches nothing and is
+rejected; if callers should be able to request an arbitrary path, add a signature taking `string` and
+returning `unknown`, so that the escape hatch is explicit.
+
+The trade-off is completion: a validator has no literals for an editor to offer, so put the union in
+the constraint alongside it, as [Typing a Fetch Function](#typing-a-fetch-function) shows.
+
+#### `TypedFetchRequestInit<Schema, Path, Method?>`
 Provides typed request options for a specific path:
 ```ts
 // For paths requiring body/headers/query parameters
@@ -212,12 +301,92 @@ await api('/users', {
 })
 ```
 
+Pass `Method` where it is known. The methods a path answers depend on it, since a path may reach one
+endpoint for one method and a different one for another, so a method-agnostic init describes only
+what every reachable endpoint has in common:
+
+```ts
+type A = TypedFetchRequestInit<Schema, '/users', 'POST'>['body'] // { name: string }
+type B = TypedFetchRequestInit<Schema, '/users'>['body'] // BodyInit | null | undefined
+```
+
 #### `TypedFetchResponseBody<Schema, Path>`
 Returns the typed response body for a given path:
 ```ts
 const response = await api('/users/123')
 // Type automatically inferred from schema
 ```
+
+#### `TypedFetchMethods<Schema, Path>`
+
+The methods a path answers, in either case, or every method where it resolves to nothing. Constrain a signature's
+method parameter with it (`method?: M & TypedFetchMethods<Schema, T>`) to reject a method the path
+does not answer, which a path union cannot express on its own.
+
+#### `TypedFetchRequestBody` / `TypedFetchRequestQuery` / `TypedFetchRequestHeaders` / `TypedFetchRequires`
+
+The shape an endpoint declares for one field of the request, or a fallback where it declares none,
+plus whether the field is required.
+
+Use these instead of `TypedFetchRequestInit` where the options type has to be *extensible*. A whole
+init is built from conditionals, and an interface may only extend a type whose members are statically
+known, so `interface Options<T> extends Omit<TypedFetchRequestInit<Schema, T>, 'method'>` does not
+compile (`TS2312`) as soon as the path is generic. Writing the keys out avoids it:
+
+```ts
+interface Options<Path extends string, Method extends AnyHTTPMethod> {
+  body?: TypedFetchRequestBody<Schema, Path, Method>
+  query?: TypedFetchRequestQuery<Schema, Path, Method>
+  headers?: TypedFetchRequestHeaders<Schema, Path, Method>
+}
+
+// and a consumer of yours can extend it
+interface MyOptions<Path extends string, Method extends AnyHTTPMethod> extends Options<Path, Method> {
+  retries?: number
+}
+```
+
+`TypedFetchRequires<Schema, Path, Method, 'body' | 'query' | 'headers'>` reports whether a field is
+required, for making the corresponding member required at a call signature.
+
+Pass `never` as the fallback where you need to tell "the endpoint declared this" from "it did not".
+That is what lets a client widen only the declared case, which is what request headers want: an
+endpoint declares the headers it *requires*, not the only ones a request may carry.
+
+```ts
+type Declared<Path extends string, Method extends AnyHTTPMethod> = TypedFetchRequestHeaders<Schema, Path, Method, never>
+
+type Headers<Path extends string, Method extends AnyHTTPMethod> = [Declared<Path, Method>] extends [never]
+  ? Record<string, string>
+  : Declared<Path, Method> & Record<string, string>
+```
+
+The declared header stays required and typed, and a request may carry others. The same shape applies
+to `query` for an endpoint that declares one but should still accept more.
+
+A field declared as `never` counts as declared, and means the field cannot be supplied: the fallback
+is not reached and the option resolves to `never`. That is the intended reading for a hand-written
+`body: never`, and a trap for a generator that emits an extractor call per field rather than deciding
+whether one applies: `queryType: QueryOf<typeof handler>` on a handler that validates nothing
+resolves to `never`, and the endpoint then has an option no value satisfies rather than an open one.
+Omit the field instead, or, where the generator cannot tell, ask with `never` as the fallback and
+treat that as undeclared, as above.
+
+A field declared as `unknown` is the other case: not "cannot be supplied" but "cannot be typed". It is
+never required, and the option accepts anything, so it is the right thing for a generator to emit
+where its extractor gives up.
+
+An extractor written as a conditional over a naked type parameter reaches `never` more often than its
+author expects, since such a conditional distributes and short-circuits: one that cannot read a
+handler yields `never`, which then reads here as "cannot be supplied" rather than as the fallback the
+author had in mind. Guard the entry point with `[T] extends [never]`, and prefer omitting a field to
+emitting an extractor call that can fail.
+
+A path that resolves to nothing, including one known only to be a `string`, falls back on every field
+and requires none of them, so a client that accepts an opaque path still has usable options. The
+response and error accessors differ deliberately: they resolve to `never` for such a path, since
+there is no response to describe, and to `unknown` for a `Request` or a `URL`, which are accepted
+inputs carrying no path to resolve.
 
 #### `TypedHeaders<HeaderMap>`
 Provides typed header access:
@@ -244,14 +413,75 @@ reduce while the map is still generic, so a plain `Headers` is neither assignabl
 
 ### Utilities
 
-#### `serializeRoutes(name, routes, options?)`
+#### `compileRoutes(sets, options?)` from `fetchdts/compiler`
 
-Generate a TypeScript schema from route definitions. Each route is a list of segments, already split:
+Compile route sets into a module of types specialised to them. Each route is a list of segments,
+already split; `fetchdts` does not parse route patterns.
 
 ```ts
-import { DynamicParam, serializeRoutes } from 'fetchdts'
+import { compileRoutes } from 'fetchdts/compiler'
 
-const schema = serializeRoutes('APISchema', [
+const { code, strategy, stats } = compileRoutes([
+  { routes: serverRoutes },
+  { routes: externalRoutes, origin: 'https://api.example.com' },
+], { name: 'ServerRoutes', moduleSpecifier: 'nuxt/app' })
+```
+
+`imports` on the result lists the names the emitted module imports, so a consumer re-exporting them
+from its own entry can assert it covers them. An import the specifier does not provide resolves to
+`any` rather than failing, because `skipLibCheck` suppresses the error in a declaration file, and
+every type built on it then accepts anything.
+
+The emitted module exports the route tree, an exact-match table where one is worth emitting, the path
+union, and accessors specialised to the route set: `ValidInput`, `Response`, `ResponseHeaders`,
+`ErrorBody`, `RequestBody`, `RequestQuery`, `RequestHeaders` and `Requires`. A consumer's signatures
+then name only the emitted types and `AnyFetchPath`, so how a path is resolved is free to change
+between versions of `fetchdts` without changing the signatures a consumer writes, since regenerating is
+enough.
+
+An artefact left behind by an upgrade fails to compile, because the emitted module imports the type
+names it uses. That holds only where the name changed, so an emitted-surface type is renamed whenever
+its meaning changes rather than quietly resolving to something else.
+
+Where a consumer's route map can be extended by hand, pass `resolveAgainst` with the name of an
+interface extending the emitted one:
+
+```ts
+// generated.ts, emitted with { name: 'GeneratedRoutes', resolveAgainst: 'ServerRoutes' }
+// routes.ts
+export interface ServerRoutes extends GeneratedRoutes {}
+```
+
+The accessors then resolve against `ServerRoutes`, so a route someone adds by augmenting it is found,
+while every path known at generation time still short-circuits through the exact-match table.
+Without this the accessors are bound to the emitted interface, and an augmentation, which targets
+the consumer's own interface, is invisible to them, so a hand-added route reads as a typo. Pass any
+imports the emitted module needs for that name, or for types its metadata references, as `imports`.
+
+Every strategy emits the same names. Which one is chosen depends on the route set: an exact-match
+table is emitted for any static path, since a lookup replaces a walk, and the path union while the
+paths reached through a parameter are few enough for it to stay cheap (`unionLimit`, 200 by default).
+`strategy` in the result and a comment at the head of the module record what was chosen and the counts
+that chose it; pass `strategy` to force one.
+
+A type a route's handler cannot give up belongs in that route's metadata, not in an augmentation of
+the emitted module: an override reaches the table and the union, so it is offered as a completion,
+where a merged route reaches neither.
+
+Method names are uppercased, as a router compares them case-insensitively, and a route with no
+segments is emitted as `'/'`.
+
+Route segments, method names and metadata fields come from whatever generated them, so every lookup
+table built from them has a null prototype, a metadata value that is not a string is skipped, and an
+interface name, a module specifier or a segment the compiler cannot emit is a `TypeError` rather than
+invalid output. A static segment is also escaped where it lands inside an emitted template literal
+type.
+
+```ts
+import { DynamicParam } from 'fetchdts'
+import { compileRoutes } from 'fetchdts/compiler'
+
+const { code } = compileRoutes([{ routes: [
   {
     segments: ['/users'],
     metadata: {
@@ -272,10 +502,10 @@ const schema = serializeRoutes('APISchema', [
       }
     }
   }
-])
+] }], { name: 'APISchema' })
 
-console.log(schema)
-// Outputs TypeScript interface definition
+console.log(code)
+// Outputs the generated module
 ```
 
 A segment is either static or a parameter:
@@ -285,7 +515,12 @@ A segment is either static or a parameter:
 | `'/users'`, `'users'`, `{ type: 'static', value: 'users' }` | a static segment |
 | `'https://api.example.com'` | an origin, for cross-domain schemas |
 | `DynamicParam`, `{ type: 'dynamic' }` | exactly one segment |
-| `WildcardParam`, `{ type: 'wildcard' }` | the rest of the path |
+| `WildcardParam`, `{ type: 'wildcard' }` | the rest of the path, which may be empty; nothing may follow it |
+
+A static segment spanning several path segments is split into one key per segment, and an origin is
+kept whole. A path is resolved by looking up a single segment as a key, so one key per segment is the
+shape that keeps resolution independent of how many routes a node holds; a key spanning several is
+still matched, by scanning the node's keys.
 
 The object form exists so that tools which cannot pass symbols across a serialisation boundary can
 still describe a route. Both forms produce identical output, and a static segment may itself contain
@@ -302,7 +537,8 @@ canonical form directly, and gives it to you from the router that will serve the
 generated types cannot drift from the routing:
 
 ```ts
-import { DynamicParam, serializeRoutes, WildcardParam } from 'fetchdts'
+import { DynamicParam, WildcardParam } from 'fetchdts'
+import { compileRoutes } from 'fetchdts/compiler'
 import { routeNodeKeys } from 'rou3'
 
 const routes = endpoints.flatMap(({ pattern, method, responseType }) =>
@@ -321,7 +557,7 @@ const routes = endpoints.flatMap(({ pattern, method, responseType }) =>
   })),
 )
 
-const schema = serializeRoutes('APISchema', routes)
+const { code } = compileRoutes([{ routes }], { name: 'APISchema' })
 ```
 
 For filesystem routes, [`unrouting`](https://github.com/unjs/unrouting) parses the major conventions
@@ -417,11 +653,11 @@ interface APISchema {
 }
 ```
 
-`serializeRoutes` emits that form for an `ALL` entry, which is worth using over spelling out every
+`compileRoutes` emits that form for an `ALL` entry, which is worth using over spelling out every
 method, as the generated file is several times smaller:
 
 ```ts
-serializeRoutes('APISchema', [
+compileRoutes([{ routes: [
   {
     segments: ['/api', '/hello'],
     metadata: {
@@ -430,7 +666,7 @@ serializeRoutes('APISchema', [
       POST: { bodyType: '{ name: string }', responseType: 'Created' }
     }
   }
-])
+] }])
 ```
 
 ### Registering a Route Without a Return Type
@@ -440,9 +676,9 @@ still a route, and should stay callable rather than looking like a typo. Registe
 with nothing else declared:
 
 ```ts
-serializeRoutes('APISchema', [
+compileRoutes([{ routes: [
   { segments: ['/api', '/proxy'], metadata: { ALL: {} } },
-])
+] }])
 
 // [Endpoint]: Record<HTTPMethod, {}>
 ```
@@ -463,11 +699,31 @@ its surface by accident.
 ### Requests Built From Runtime Values
 
 `` $fetch(`/api/posts/${id}`) `` has the type `` `/api/posts/${string}` ``, so it matches the dynamic
-parameter, but at runtime `id` could be `'static'` and hit a static sibling instead. By default the
-dynamic parameter's response is used, which is exact for a literal path and optimistic for this one.
+parameter, but at runtime `id` could be `'static'` and hit a static sibling instead. A segment that
+is not known in full reaches every branch it could take, so the response is the union of them:
 
-Where that matters, an endpoint can declare the response to use when the segment reaching it was not
-a literal:
+```ts
+interface APISchema {
+  '/api/posts': {
+    '/static': { [Endpoint]: { GET: { response: Static } } }
+    [DynamicParam]: { [Endpoint]: { GET: { response: Post } } }
+  }
+}
+
+type A = TypedFetchResponseBody<APISchema, `/api/posts/${string}`> // Post | Static
+type B = TypedFetchResponseBody<APISchema, '/api/posts/123'> // Post
+type C = TypedFetchResponseBody<APISchema, '/api/posts/static'> // Static
+```
+
+This holds for a segment that is only partly known (`` `/api/posts/item-${string}` `` reaches
+`/api/posts/item-1` and the parameter, but no other sibling), and for endpoints below the segment, so
+`` `/api/users/${string}/posts` `` accounts for a `/api/users/me/posts` sibling.
+
+A static key spanning several segments (`'/api/users'` written as a single key) is matched by prefix
+only, so a partly known segment does not reach it.
+
+Where the union should be something other than what the schema implies, an endpoint can declare the
+response to use when the segment reaching it was not a literal, which takes precedence:
 
 ```ts
 interface APISchema {
@@ -489,15 +745,10 @@ type B = TypedFetchResponseBody<APISchema, '/api/posts/123'> // Post
 type C = TypedFetchResponseBody<APISchema, '/api/posts/static'> // Static
 ```
 
-The union is not computed for you, deliberately: which siblings a request could reach is a property
-of the route set, and whoever generates the schema knows it, so computing it once at generation time
-costs a fraction of deriving it at every call site. `serializeRoutes` emits an
-`ambiguousResponseType` like any other metadata field. An endpoint that declares no
-`ambiguousResponse` behaves exactly as before, so this is opt-in per endpoint.
-
-The alternative is only used where a *parameter* consumed a non-literal segment. A wildcard is
-unaffected, since it matches the rest of the path either way, and it applies to endpoints below the
-parameter too, so `` `/api/users/${string}/posts` `` can account for a `/api/users/me/posts` sibling.
+`compileRoutes` carries an `ambiguousResponseType` like any other metadata field, so a generator that
+already knows the union can declare it rather than have it derived. The declared response is used
+only where a *parameter* consumed a non-literal segment; a wildcard is unaffected, since it matches
+the rest of the path either way.
 
 ### Cross-Domain API Support
 
@@ -554,15 +805,73 @@ else {
 
 ### Typing a Fetch Function
 
-Keep the init type in *parameter* position, and make the method a type parameter if the response
-needs to narrow by it:
+Constrain the path by the union, keep the path parameter itself plain, and constrain the *method* by
+what that path answers:
 
 ```ts
-declare function $fetch<T extends TypedFetchInput<Schema>, M extends HTTPMethod = 'GET'>(
+declare function $fetch<T extends Paths, M extends AnyHTTPMethod = 'GET'>(
   input: T,
-  init?: TypedFetchRequestInit<Schema, T> & { method?: M },
-): TypedFetchResponseBody<Schema, Trimmed<T>, M>
+  init?: TypedFetchRequestInit<Schema, T, M> & { method?: M & TypedFetchMethods<Schema, T> },
+): TypedFetchResponseBody<Schema, T, M>
+declare function $fetch<T extends AnyFetchPath, M extends AnyHTTPMethod = 'GET'>(
+  input: T & ValidFetchInput<Schema, T, M>,
+  init?: TypedFetchRequestInit<Schema, T, M> & { method?: M },
+): TypedFetchResponseBody<Schema, T, M>
 ```
+
+The first signature answers a path the union covers: the union gives an editor its completions, and
+the plain parameter is what lets `` `/api/users/${id}` `` infer as a template literal type. The second
+takes what the union cannot express (a query string, a fragment, a trailing slash, a `Request` or a
+`URL`) and validates it.
+
+The cost of the plain parameter is that a union member covering a route parameter is a pattern, so
+`'/api/users/1/2'` satisfies `` `/api/users/${string}` `` and the first signature accepts it, with the
+response resolving to `never`. Validate the first signature as well if that matters more than
+inferring `` `/api/users/${id}` ``, since the two cannot both hold: intersecting the validator stops a
+template literal argument from inferring, and the path then resolves as the whole union.
+
+Three things have to be true at once and they pull against each other, so the shape is worth
+understanding rather than copying:
+
+| wanted | needs |
+| --- | --- |
+| completions from `` $fetch(' `` | the union in the constraint of the *first* signature |
+| `` `/api/users/${id}` `` to resolve | the path parameter **not** intersected with anything |
+| a method the path does not answer to be rejected | the method constrained, since a path union carries no method |
+
+Intersecting the validator onto the path parameter satisfies the third and breaks the second: a
+template literal argument stops inferring as a template literal type and arrives as `string`, so the
+call resolves to `unknown` or is rejected outright. Constraining the method with
+`TypedFetchMethods<Schema, T>` closes the same hole without touching the path.
+
+Note the method is constrained on the init *member* (`method?: M & TypedFetchMethods<Schema, T>`)
+rather than on the type parameter. Constraining the parameter itself would make the `= 'GET'` default
+illegal, and it is the same rule as [never constraining a type parameter by a type computed from the
+route map](#typedfetchinputschema).
+
+If your signature also lets a caller override the response type, widen the method's default when they
+do. Naming any type argument turns inference off for the rest, so `$fetch<Foo>(url, { method: 'post' })`
+would otherwise fall back to `'GET'` and reject the method:
+
+```ts
+declare function $fetch<
+  R = void,
+  T extends Paths = Paths,
+  M extends AnyHTTPMethod = R extends void ? 'GET' : AnyHTTPMethod,
+>(input: T, init?: { method?: M & TypedFetchMethods<Schema, T> }): R extends void ? TypedFetchResponseBody<Schema, T, M> : R
+```
+
+Once the caller has named the response, the method no longer decides what comes back, so widening the
+default costs nothing.
+
+The init belongs in *parameter* position, and the method is worth passing to it as well as to the
+response: it is otherwise resolved for every method the path answers, and describes only what they
+have in common. Constrain the method parameter by `AnyHTTPMethod` rather than `HTTPMethod`, or
+`method: 'post'` fails to infer and the call is rejected for a method the endpoint answers.
+
+The union in the constraint is compared against the requested path at every call site, so that part
+of checking tracks the size of the schema; validation walks it instead, which costs the depth of one
+path. That is the whole of the difference between the three figures above.
 
 Constraining a type parameter to the init type instead looks equivalent, but is not:
 
@@ -571,7 +880,7 @@ Constraining a type parameter to the init type instead looks equivalent, but is 
 declare function $fetch<T extends TypedFetchInput<Schema>, Init extends TypedFetchRequestInit<Schema, T>>(
   input: T,
   init?: Init,
-): TypedFetchResponseBody<Schema, Trimmed<T>, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>
+): TypedFetchResponseBody<Schema, T, Init['method'] extends HTTPMethod ? Init['method'] : 'GET'>
 ```
 
 The constraint is instantiated with `T` as the whole path union, so the request init is computed for
@@ -584,6 +893,27 @@ Two smaller notes on the same signature. An endpoint declares the headers it *re
 And if some paths only accept a method other than `GET`, a second overload constrained to
 `TypedFetchInput<Schema, 'GET'>` with an optional init keeps those paths from being called without
 one.
+
+### Wrapping the Fetch Function in a Composable
+
+Where the path arrives wrapped, as it does in a composable taking a ref or a getter, intersect the
+validator with the *whole* parameter rather than with the path inside it:
+
+```ts
+declare function useFetch<T extends AnyFetchPath, M extends AnyHTTPMethod = 'GET'>(
+  url: MaybeRefOrGetter<T> & ValidFetchInput<Schema, T, M>,
+  options?: UseFetchOptions<Schema, T, M> & TypedFetchRequestInit<Schema, T, M> & { method?: M },
+): { data: Ref<TypedFetchResponseBody<Schema, T, M> | null> }
+```
+
+TypeScript cannot infer through an intersection, so
+`MaybeRefOrGetter<T & ValidFetchInput<Schema, T, M>>` leaves `T` at its constraint and every path
+resolves to nothing. Intersected at the top level, `T` is still inferred from the ref or the getter,
+and the failure still reports on the `url` argument.
+
+Options that narrow the response, as `transform` and `pick` do, layer on top: resolve the response
+once with `TypedFetchResponseBody` and let the further type parameters default from it, since the
+path and method are already resolved by the time they are read.
 
 ### Schema Organization
 
