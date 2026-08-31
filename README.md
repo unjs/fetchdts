@@ -463,6 +463,9 @@ A type a route's handler cannot give up belongs in that route's metadata, not in
 the emitted module: an override reaches the table and the union, so it is offered as a completion,
 where a merged route reaches neither.
 
+Method names are uppercased, as a router compares them case-insensitively, and a route with no
+segments is emitted as `'/'`.
+
 Route segments, method names and metadata fields come from whatever generated them, so every lookup
 table built from them has a null prototype, a metadata value that is not a string is skipped, and an
 interface name, a module specifier or a segment the compiler cannot emit is a `TypeError` rather than
@@ -507,7 +510,7 @@ A segment is either static or a parameter:
 | `'/users'`, `'users'`, `{ type: 'static', value: 'users' }` | a static segment |
 | `'https://api.example.com'` | an origin, for cross-domain schemas |
 | `DynamicParam`, `{ type: 'dynamic' }` | exactly one segment |
-| `WildcardParam`, `{ type: 'wildcard' }` | the rest of the path, which may be empty |
+| `WildcardParam`, `{ type: 'wildcard' }` | the rest of the path, which may be empty; nothing may follow it |
 
 A static segment spanning several path segments is split into one key per segment, and an origin is
 kept whole. A path is resolved by looking up a single segment as a key, so one key per segment is the

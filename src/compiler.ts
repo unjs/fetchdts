@@ -6,11 +6,11 @@ import { DynamicParam, Endpoint, WildcardParam } from './tree'
  * A single segment of a route.
  *
  * Static segments may be written with or without a leading slash (`'/users'`, `'users'`), or as an
- * origin (`'https://api.example.com'`). Parameters are either the exported symbols, for route sets
- * written by hand, or the plain object form, which survives serialisation across a tool boundary.
+ * origin (`'https://api.example.com'`). Parameters are either the exported symbols or the plain
+ * object form, which survives serialisation across a tool boundary.
  *
- * A static segment spanning several path segments is split into one key per segment, since a path is
- * resolved by looking up a single segment as a key. An origin is kept whole.
+ * A static segment spanning several path segments is split into one key per segment; an origin is
+ * kept whole.
  */
 export type RouteSegment
   = | string
@@ -29,9 +29,6 @@ export interface Route {
   /**
    * Types for the endpoint, per method, as source. `ALL` describes a handler registered for every
    * method; a specific method takes precedence over it.
-   *
-   * A type a handler could not give up belongs here rather than in an augmentation of the emitted
-   * module, which reaches neither the exact-match table nor the path union.
    */
   metadata?: {
     [key in HTTPMethod | 'ALL']?: Partial<Record<`${keyof EndpointMetadata}Type`, string>>
@@ -169,11 +166,8 @@ export interface CompiledRoutes {
   strategy: CompileStrategy
   stats: CompileStats
   /**
-   * The names the emitted module imports from `moduleSpecifier`.
-   *
-   * A consumer that re-exports them from its own entry can assert it covers this list. An import the
-   * specifier does not provide resolves to `any` rather than failing, since `skipLibCheck` suppresses
-   * the error in a declaration file, and every type built on it then accepts anything.
+   * The names the emitted module imports from `moduleSpecifier`, for a consumer that re-exports them
+   * from its own entry and wants to assert it covers this list.
    */
   imports: string[]
   toString: () => string
@@ -185,17 +179,14 @@ interface Leaf {
   /** the path as requested, where every segment of it is static */
   path?: string
   kind: 'static' | 'dynamic' | 'wildcard'
-  methods: string[]
 }
 
 /**
  * Compile route sets into a module of types specialised to them.
  *
  * Every strategy emits the same names, so a consumer's signatures do not depend on which was chosen.
- *
- * The emitted module imports the type names it uses, so an artefact left behind by an upgrade fails
- * to compile, but only where a name changed. Rename an emitted-surface type whenever its meaning
- * changes, or a stale artefact compiles and is wrong.
+ * A stale artefact fails to compile only where an imported name changed, so rename an emitted-surface
+ * type whenever its meaning changes.
  */
 export function compileRoutes(sets: RouteSet[], options?: CompileOptions): CompiledRoutes {
   const name = options?.name ?? 'Routes'
@@ -207,8 +198,7 @@ export function compileRoutes(sets: RouteSet[], options?: CompileOptions): Compi
     throw new TypeError(`Cannot resolve paths against \`${target}\`, which is not a valid interface name.`)
   }
   const specifier = options?.moduleSpecifier ?? 'fetchdts'
-  // the specifier is emitted inside a quoted string, and a specifier containing a quote, a backslash
-  // or a newline is rejected rather than escaped, since none of them names a module
+  // no module is named with a quote, a backslash or a newline, so they are rejected rather than escaped
   if (typeof specifier !== 'string' || /['"\\\n\r]/.test(specifier)) {
     throw new TypeError(`Cannot import from ${JSON.stringify(specifier)}, which is not a valid module specifier.`)
   }
@@ -219,7 +209,7 @@ export function compileRoutes(sets: RouteSet[], options?: CompileOptions): Compi
   const seen = dict<Leaf>()
 
   for (const set of sets) {
-    for (const route of sets.length > 0 ? set.routes : []) {
+    for (const route of set.routes) {
       const keys: Array<string | symbol> = []
       if (set.origin !== undefined) {
         keys.push(...staticKeys(set.origin))
@@ -227,8 +217,12 @@ export function compileRoutes(sets: RouteSet[], options?: CompileOptions): Compi
       let kind: Leaf['kind'] = 'static'
       for (const segment of route.segments) {
         for (const key of segmentKeys(segment)) {
+          // a wildcard consumes the remainder of a path, so nothing can follow it
+          if (kind === 'wildcard') {
+            throw new TypeError(`Cannot compile a route with a segment after a wildcard: ${JSON.stringify(route.segments.map(part => typeof part === 'symbol' ? part.description : part))}.`)
+          }
           if (key === DynamicParam) {
-            kind = kind === 'wildcard' ? 'wildcard' : 'dynamic'
+            kind = 'dynamic'
             imports.add('DynamicParam')
           }
           else if (key === WildcardParam) {
@@ -248,9 +242,11 @@ export function compileRoutes(sets: RouteSet[], options?: CompileOptions): Compi
       }
 
       // a route with no methods would be offered as a path and resolve to `never`, so it contributes
-      // its segments and nothing else
+      // its segments and nothing else. a method is compared case-insensitively, so a lowercase key
+      // would be emitted as one no lookup could reach
       const methods = Object.entries(route.metadata || {})
         .filter((entry): entry is [string, Record<string, string>] => typeof entry[1] === 'object' && entry[1] !== null)
+        .map(([method, metadata]) => [method.toUpperCase(), metadata] as const)
       if (methods.length === 0) {
         continue
       }
@@ -279,8 +275,8 @@ export function compileRoutes(sets: RouteSet[], options?: CompileOptions): Compi
       const leaf: Leaf = {
         keys,
         kind,
-        methods: methods.map(([method]) => method),
-        path: kind === 'static' ? keys.join('') : undefined,
+        // a route with no segments is the root, which is requested as `/`
+        path: kind === 'static' ? keys.join('') || '/' : undefined,
       }
       const id = `${kind}\u0000${keys.map(key => typeof key === 'symbol' ? key.description : key).join('\u0000')}`
       if (!Object.hasOwn(seen, id)) {
@@ -362,11 +358,7 @@ function pathUnion(leaves: Leaf[]): string {
   return `export type Path =\n${[...members].map(member => `  | ${member}`).join('\n')}`
 }
 
-/**
- * The forms one route takes as a path. Every key contributes in order, so a static segment between
- * two parameters keeps its place, and a trailing wildcard contributes a second form without it,
- * since a wildcard may consume nothing.
- */
+/** The forms one route takes as a path. A trailing wildcard contributes a second form without it. */
 function pathMembers(leaf: Leaf): string[] {
   if (leaf.path !== undefined) {
     return [JSON.stringify(leaf.path)]
@@ -415,9 +407,8 @@ function accessors(name: string, table: boolean): string {
     '/**',
     ' * Whether a path resolves, for use in parameter position: `input: T & ValidInput<T, M>`.',
     ' *',
-    ' * Does not consult `Exact`. A validator sits where the path is still a type parameter, so a',
-    ' * lookup there relates a `keyof` of every static path once per program and grows with the route',
-    ' * set; the table stays where the path is resolved, which is the response.',
+    ' * Does not consult `Exact`: a lookup where the path is still a type parameter relates a `keyof`',
+    ' * of every static path once per program, so the table stays where the path is resolved.',
     ' */',
     `export type ValidInput<Path_, Method extends AnyHTTPMethod = 'GET'>`,
     `  = ValidFetchInput<${name}, Path_, Method>`,
@@ -446,7 +437,7 @@ function accessors(name: string, table: boolean): string {
 
 const symbols = [DynamicParam, WildcardParam, Endpoint] as const
 
-const keys: Record<symbol | string, string> = Object.assign(dict<string>(), {
+const symbolNames: Record<symbol | string, string> = Object.assign(dict<string>(), {
   [DynamicParam]: '[DynamicParam]',
   [WildcardParam]: '[WildcardParam]',
   [Endpoint]: '[Endpoint]',
@@ -464,7 +455,7 @@ function stringifyRouteTree(tree: RouteTree, indent = 2, metadata = false): stri
     }
     // the `Type` suffix belongs to metadata fields (`responseType` -> `response`); a static
     // segment that happens to end in `Type` keeps its name
-    const key = keys[_key] || JSON.stringify(metadata ? (_key as string).replace(/Type$/, '') : _key as string)
+    const key = symbolNames[_key] || JSON.stringify(metadata ? (_key as string).replace(/Type$/, '') : _key as string)
     if (_key === Endpoint) {
       properties += `${' '.repeat(indent)}${key}: ${stringifyEndpoints(value as Record<string, Record<string, string[]>>, indent)}\n`
     }

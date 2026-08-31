@@ -138,9 +138,8 @@ export type Path =
 /**
  * Whether a path resolves, for use in parameter position: `input: T & ValidInput<T, M>`.
  *
- * Does not consult `Exact`. A validator sits where the path is still a type parameter, so a
- * lookup there relates a `keyof` of every static path once per program and grows with the route
- * set; the table stays where the path is resolved, which is the response.
+ * Does not consult `Exact`: a lookup where the path is still a type parameter relates a `keyof`
+ * of every static path once per program, so the table stays where the path is resolved.
  */
 export type ValidInput<Path_, Method extends AnyHTTPMethod = 'GET'>
   = ValidFetchInput<ExtensibleRoutes, Path_, Method>

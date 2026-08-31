@@ -78,8 +78,14 @@ const metadata = fc.dictionary(
   { maxKeys: 4 },
 )
 
+/** a wildcard consumes the remainder of a path, so a route ends at the first one */
+function untilWildcard(segments: RouteSegment[]): RouteSegment[] {
+  const index = segments.findIndex(part => part === WildcardParam || (typeof part === 'object' && part.type === 'wildcard'))
+  return index === -1 ? segments : segments.slice(0, index + 1)
+}
+
 const route: fc.Arbitrary<Route> = fc.record({
-  segments: fc.array(segment, { minLength: 0, maxLength: 5 }),
+  segments: fc.array(segment, { minLength: 0, maxLength: 5 }).map(untilWildcard),
   metadata: fc.oneof(fc.constant(undefined), metadata),
 }, { requiredKeys: ['segments'] }) as fc.Arbitrary<Route>
 

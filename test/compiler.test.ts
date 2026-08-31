@@ -87,9 +87,8 @@ describe('compileRoutes', () => {
       /**
        * Whether a path resolves, for use in parameter position: \`input: T & ValidInput<T, M>\`.
        *
-       * Does not consult \`Exact\`. A validator sits where the path is still a type parameter, so a
-       * lookup there relates a \`keyof\` of every static path once per program and grows with the route
-       * set; the table stays where the path is resolved, which is the response.
+       * Does not consult \`Exact\`: a lookup where the path is still a type parameter relates a \`keyof\`
+       * of every static path once per program, so the table stays where the path is resolved.
        */
       export type ValidInput<Path_, Method extends AnyHTTPMethod = 'GET'>
         = ValidFetchInput<Routes, Path_, Method>
@@ -173,6 +172,23 @@ describe('compileRoutes', () => {
     const compiled = compileRoutes([{ routes: [{ segments: [WildcardParam], metadata: { GET: { responseType: 'Any' } } }] }])
     expect(compiled.code).toContain('| "/"')
     expect(compiled.code).not.toContain('| ""')
+  })
+
+  it('emits a route with no segments as the root', () => {
+    const compiled = compileRoutes([{ routes: [{ segments: ['/'], metadata: { GET: { responseType: 'Home' } } }] }])
+    expect(compiled.code).toContain('"/": Routes[typeof Endpoint]')
+    expect(compiled.code).toContain('| "/"')
+    expect(compiled.code).not.toContain('"":')
+  })
+
+  it('normalises method keys, which a router compares case-insensitively', () => {
+    const compiled = compileRoutes([{ routes: [{ segments: ['/a'], metadata: { get: { responseType: '1' } } as never }] }])
+    expect(compiled.code).toContain('"GET"')
+  })
+
+  it('rejects a segment after a wildcard, which consumes the remainder of a path', () => {
+    expect(() => compileRoutes([{ routes: [{ segments: [WildcardParam, '/tail'], metadata: { GET: { responseType: '1' } } }] }]))
+      .toThrow(/after a wildcard/)
   })
 
   it('compiles several sets into one module, keyed by origin', () => {

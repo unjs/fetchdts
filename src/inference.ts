@@ -33,12 +33,15 @@ export type AnyFetchPath = `/${string}` | `${string}://${string}`
 // TODO: support TypedFetchURL<Schema, T> | TypedFetchRequest<Schema, T>
 export type TypedFetchInput<Schema, Method extends AnyHTTPMethod | '' = ''> = TypedFetchPath<Schema, '', NormalizeMethod<Method>>
 
+/** The path a walk arriving at an endpoint has built. A root endpoint is requested as `/`. */
+type PathSoFar<Base extends string> = Base extends '' ? '/' : Base
+
 export type TypedFetchPath<Schema, Base extends string = '', Method extends HTTPMethod | '' = ''> = {
   [K in keyof Schema]: K extends typeof Endpoint
     ? '' extends Method
-      ? Base // return all possible endpoints
+      ? PathSoFar<Base> // return all possible endpoints
       : HasMethod<Schema[K], Method> extends true
-        ? Base // filter by method passed in
+        ? PathSoFar<Base> // filter by method passed in
         : never
     : K extends StaticParam
       ? Schema[K] extends Record<string | symbol, unknown>
@@ -64,8 +67,8 @@ export type TypedFetchPath<Schema, Base extends string = '', Method extends HTTP
  *
  * Intersect it with the whole parameter, never with the path inside it: TypeScript cannot infer
  * through an intersection, so `MaybeRefOrGetter<T & ValidFetchInput<…>>` leaves `T` at its
- * constraint. For the same reason a template literal argument stops inferring as one, so a signature
- * that must accept `` `/users/${id}` `` validates the method instead; see {@link TypedFetchMethods}.
+ * constraint. For the same reason a signature that must accept `` `/users/${id}` `` validates the
+ * method instead; see {@link TypedFetchMethods}.
  *
  * An input that is not a path, such as a `Request`, carries nothing to check and is accepted.
  */
@@ -137,9 +140,8 @@ export type MatchPattern = 'exact' | 'dynamic' | 'ambiguous'
 /**
  * Endpoints reached by matching `Path` against the static keys of `Schema`.
  *
- * The leading segment is looked up as a key, which costs the same whatever the node holds; scanning
- * costs one instantiation per key per level, so a node with a key per route pays its fan-out at every
- * call site. The scan remains for a key spanning several segments, which a lookup cannot find.
+ * The leading segment is looked up as a key, which costs the same whatever the node holds. The scan
+ * remains for a key spanning several segments, which a lookup cannot find.
  */
 type StaticMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern>
   = LookupHead<Schema, HeadKey<Path>, Path, Method, Pattern>
@@ -173,7 +175,7 @@ type LookupHead<Schema, Head, Path extends string, Method extends HTTPMethod | '
 
 /**
  * The lookup, or the scan where it found nothing: a node may hold a key spanning several segments
- * beside a key for the first of them. Passed in rather than computed here, to instantiate it once.
+ * beside a key for the first of them.
  */
 type OrScanned<Keyed, Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern>
   = [Keyed] extends [never]
@@ -228,8 +230,8 @@ type DynamicMatch<Schema, Path extends string, Method extends HTTPMethod | '', P
  * segments: `/files/**` answers `/files` as well as `/files/a/b`. The remainder must begin at a
  * segment boundary, so `/filesystem` does not reach the wildcard under `/files`.
  *
- * A wildcard is terminal, so its endpoints are read directly. Walking into it would re-enter this
- * type, and against an unresolved path both branches expand at every level.
+ * A wildcard is terminal, so its endpoints are read directly: walking into it would re-enter this
+ * type, which against an unresolved path expands both branches at every level.
  */
 type WildcardMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern>
   = Path extends '' | `/${string}`
@@ -244,8 +246,8 @@ type WildcardMatch<Schema, Path extends string, Method extends HTTPMethod | '', 
  * The static match, or the parameter match where there is none. Where no method was requested, a
  * parameter sibling still answers the methods the static node does not.
  *
- * Passed in rather than computed here: one instantiation, and one conditional shallower, which
- * matters because an unresolved path defers every conditional in the walk and the chain has a limit.
+ * The static match is passed in rather than computed here, since an unresolved path defers every
+ * conditional in the walk and the chain has a limit.
  */
 type PreferStatic<Static, Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern>
   = [Static] extends [never]
@@ -258,9 +260,6 @@ type PreferStatic<Static, Schema, Path extends string, Method extends HTTPMethod
  * Endpoints reached by consuming a segment of `Path` with a parameter. A dynamic parameter is more
  * specific than a wildcard, as it is in a router, so the wildcard is consulted only for what the
  * dynamic parameter does not answer.
- *
- * The less specific match is written inside the branches that use it rather than passed to a helper,
- * so that a lookup which never reaches it does not instantiate it.
  */
 type ParamMatch<Schema, Path extends string, Method extends HTTPMethod | '', Pattern extends MatchPattern>
   = [DynamicMatch<Schema, Path, Method, Pattern>] extends [never]
@@ -326,8 +325,7 @@ type LiteralSegment<Path extends string>
  */
 type KnownSegment<Path extends string>
   // a mapped type over a template literal key gives a pattern index signature, which an empty object
-  // satisfies, where a literal key gives a property that it does not. the whole path is tested first,
-  // since one holding no placeholder is the common case and answers in a single check
+  // satisfies, where a literal key gives a property that it does not
   = EmptyObject extends Record<Path, 1>
     ? [Segment<Path>] extends [never]
         ? true
@@ -473,9 +471,13 @@ export type TypedFetchRequires<Schema, Path, Method extends AnyHTTPMethod | '', 
  * `init?: { method?: M & TypedFetchMethods<Schema, T> }`.
  */
 export type TypedFetchMethods<Schema, Path>
-  = TypedFetchResolvedMeta<Schema, Path, ''> extends { method: infer Method }
-    ? Method
-    : AnyHTTPMethod
+  // `never extends { method: infer Method }` holds and infers nothing, so the fallback needs its own
+  // branch or an unresolved path answers `unknown`
+  = [TypedFetchResolvedMeta<Schema, Path, ''>] extends [never]
+    ? AnyHTTPMethod
+    : TypedFetchResolvedMeta<Schema, Path, ''> extends { method: infer Method }
+      ? Method
+      : AnyHTTPMethod
 
 export type TypedFetchResponseHeaders<Schema, Endpoint, Method extends AnyHTTPMethod = 'GET'>
   = 'responseHeaders' extends keyof TypedFetchResolvedMeta<Schema, Endpoint, Method>

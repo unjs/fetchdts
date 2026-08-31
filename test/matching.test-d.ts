@@ -1,5 +1,5 @@
 import type { HTTPMethod } from '../src/http'
-import type { AnyFetchPath, TypedFetchErrorBody, TypedFetchInput, TypedFetchRequestBody, TypedFetchRequestHeaders, TypedFetchRequestInit, TypedFetchRequestQuery, TypedFetchRequires, TypedFetchResolvedMeta, TypedFetchResponseBody, ValidFetchInput } from '../src/inference'
+import type { AnyFetchPath, AnyHTTPMethod, TypedFetchErrorBody, TypedFetchInput, TypedFetchMethods, TypedFetchRequestBody, TypedFetchRequestHeaders, TypedFetchRequestInit, TypedFetchRequestQuery, TypedFetchRequires, TypedFetchResolvedMeta, TypedFetchResponseBody, ValidFetchInput } from '../src/inference'
 import type { DynamicParam, Endpoint, WildcardParam } from '../src/tree'
 import type { GeneratedRoutes } from './fixture/generated'
 import { describe, expectTypeOf, it } from 'vitest'
@@ -139,6 +139,16 @@ describe('methods written in lowercase', () => {
     const init: TypedFetchRequestInit<Overlapping, '/api/123', 'post'> = { method: 'post', body: { id: 1 } }
     expectTypeOf(init.body).toEqualTypeOf<{ id: number }>()
     expectTypeOf(init.method).toEqualTypeOf<'POST' | 'post'>()
+  })
+})
+
+describe('TypedFetchMethods', () => {
+  it('gives the methods a path answers', () => {
+    expectTypeOf<TypedFetchMethods<Overlapping, '/api/blog/thing'>>().toEqualTypeOf<'POST' | 'GET' | 'HEAD'>()
+  })
+
+  it('gives every method where the path resolves to nothing', () => {
+    expectTypeOf<TypedFetchMethods<Overlapping, '/nope'>>().toEqualTypeOf<AnyHTTPMethod>()
   })
 })
 
