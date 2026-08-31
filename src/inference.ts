@@ -285,7 +285,11 @@ type EndpointMeta<Endpoints, Method extends HTTPMethod | '', Pattern extends Mat
     : Method extends keyof Endpoints
       ? Ambiguate<Endpoints[Method], Pattern> & { method: Method }
       : Method extends 'HEAD'
-        ? Ambiguate<GetEndpoint<Endpoints>, Pattern> & { method: 'HEAD' }
+        // `keyof never` carries every key, so an absent `GET` would otherwise ambiguate into a
+        // metadata object of index signatures and answer the request
+        ? [GetEndpoint<Endpoints>] extends [never]
+            ? never
+            : Ambiguate<GetEndpoint<Endpoints>, Pattern> & { method: 'HEAD' }
         : never
 
 /** The `GET` endpoint of a node, or `never` where it has none. */

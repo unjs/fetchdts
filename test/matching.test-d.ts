@@ -126,6 +126,15 @@ describe('HEAD requests', () => {
   it('is served through a parameter as any other method is', () => {
     expectTypeOf<TypedFetchResponseBody<DynamicAndWildcard, '/x/a', 'HEAD'>>().toEqualTypeOf<'dynamic'>()
   })
+
+  it('is rejected where the parameter it reaches has no GET endpoint', () => {
+    interface PostOnlyParam {
+      '/api': { [DynamicParam]: { [Endpoint]: { POST: { response: 'p' } } } }
+    }
+    expectTypeOf<TypedFetchResponseBody<PostOnlyParam, '/api/x', 'HEAD'>>().toBeNever()
+    expectTypeOf<TypedFetchResolvedMeta<PostOnlyParam, `/api/${string}`, 'HEAD'>>().toBeNever()
+    expectTypeOf<ValidFetchInput<PostOnlyParam, `/api/${string}`, 'HEAD'>>().not.toBeUnknown()
+  })
 })
 
 describe('methods written in lowercase', () => {
