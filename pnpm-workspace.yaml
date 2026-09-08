@@ -5,7 +5,7 @@ trustPolicy: no-downgrade
 packages:
   - playground
 overrides:
-  fetchdts: 'link:.'
+  fetchdts: 'workspace:*'
 
 allowBuilds:
   esbuild: false
