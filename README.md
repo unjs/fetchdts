@@ -471,6 +471,27 @@ where a merged route reaches neither.
 Method names are uppercased, as a router compares them case-insensitively, and a route with no
 segments is emitted as `'/'`.
 
+### Consumer-owned metadata
+
+A compiler integration can register additional metadata fields without asking fetchdts to
+interpret them:
+
+```ts
+declare module 'fetchdts/compiler' {
+  interface RouteMetadataExtension {
+    cachePolicy: unknown
+  }
+}
+
+compileRoutes([{ routes: [{
+  segments: ['/users'],
+  metadata: { GET: { cachePolicyType: '{ maxAge: 60 }' } },
+}] }])
+```
+
+The generated endpoint metadata contains `cachePolicy: { maxAge: 60 }`. Unknown fields remain type
+errors.
+
 Route segments, method names and metadata fields come from whatever generated them, so every lookup
 table built from them has a null prototype, a metadata value that is not a string is skipped, and an
 interface name, a module specifier or a segment the compiler cannot emit is a `TypeError` rather than
