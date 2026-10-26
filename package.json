@@ -54,7 +54,7 @@
     "test:types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "9.3.0",
+    "@antfu/eslint-config": "10.0.0",
     "@types/node": "26.4.0",
     "@vitest/coverage-v8": "5.0.5",
     "eslint": "10.13.0",
