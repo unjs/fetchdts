@@ -20,6 +20,26 @@ export type RouteSegment
     | { type: 'dynamic' }
     | { type: 'wildcard' }
 
+/**
+ * Consumer-owned metadata fields accepted by the route compiler.
+ *
+ * Compiler integrations can register fields through module augmentation. The field values are
+ * used only to constrain their names; fetchdts emits the supplied type source without interpreting
+ * its semantics.
+ *
+ * @example
+ * ```ts
+ * declare module 'fetchdts/compiler' {
+ *   interface RouteMetadataExtension {
+ *     cachePolicy: unknown
+ *   }
+ * }
+ * ```
+ */
+export interface RouteMetadataExtension {}
+
+type RouteMetadata = EndpointMetadata & RouteMetadataExtension
+
 export interface Route {
   /**
    * The route, already split into segments. `fetchdts` does not parse route patterns; convert them
@@ -31,7 +51,7 @@ export interface Route {
    * method; a specific method takes precedence over it.
    */
   metadata?: {
-    [key in HTTPMethod | 'ALL']?: Partial<Record<`${keyof EndpointMetadata}Type`, string>>
+    [key in HTTPMethod | 'ALL']?: Partial<Record<`${Extract<keyof RouteMetadata, string>}Type`, string>>
   }
 }
 
